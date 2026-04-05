@@ -1,0 +1,5 @@
+{
+  "name": "Ahmed Abdulrazek Services",
+  "description": "A professional landing page for Ahmed Abdulrazek's services.",
+  "requestFramePermissions": ["microphone"]
+}
