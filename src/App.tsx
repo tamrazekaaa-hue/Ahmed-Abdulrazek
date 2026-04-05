@@ -32,12 +32,30 @@ import {
   Music,
   VolumeX,
   ChevronLeft,
-  ChevronRight,
   Maximize2
 } from 'lucide-react';
 import Chatbot from './components/Chatbot';
+import AdminDashboard from './components/AdminDashboard';
 
 export default function App() {
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  if (currentPath === '/admin') {
+    return <AdminDashboard />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
@@ -45,40 +63,6 @@ export default function App() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
-
-  useEffect(() => {
-    let interacted = false;
-    
-    const tryPlayMusic = () => {
-      if (interacted) return;
-      if (audioRef.current) {
-        audioRef.current.play().then(() => {
-          setIsMusicPlaying(true);
-          interacted = true;
-          // Clean up listeners once playing starts
-          window.removeEventListener('click', tryPlayMusic);
-          window.removeEventListener('scroll', tryPlayMusic);
-          window.removeEventListener('touchstart', tryPlayMusic);
-        }).catch((err) => {
-          console.log("Browser blocked autoplay, waiting for user interaction.", err);
-        });
-      }
-    };
-
-    // Try playing immediately (might work depending on browser settings)
-    tryPlayMusic();
-
-    // If blocked, try again on the very first user interaction (scroll, click, touch)
-    window.addEventListener('click', tryPlayMusic);
-    window.addEventListener('scroll', tryPlayMusic);
-    window.addEventListener('touchstart', tryPlayMusic);
-
-    return () => {
-      window.removeEventListener('click', tryPlayMusic);
-      window.removeEventListener('scroll', tryPlayMusic);
-      window.removeEventListener('touchstart', tryPlayMusic);
-    };
-  }, []);
 
   const services = [
     {
@@ -198,6 +182,9 @@ export default function App() {
   };
 
   const galleryPhotos = [
+    "/WhatsApp Image 2026-04-05 at 8.17.35 PM.jpeg",
+    "/WhatsApp Image 2026-04-05 at 8.06.17 PM.jpeg",
+    "/WhatsApp Image 2026-04-05 at 8.04.31 PM.jpeg",
     "/WhatsApp Image 2026-04-05 at 6.08.21 PM.jpeg",
     "/WhatsApp Image 2026-04-05 at 6.09.06 PM.jpeg",
     "/WhatsApp Image 2026-04-05 at 6.09.08 PM.jpeg",
@@ -549,8 +536,8 @@ export default function App() {
               {galleryPhotos.map((photo, index) => (
                 <motion.div 
                   key={index}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true, margin: "-50px" }}
                   transition={{ duration: 0.7, delay: index * 0.1, ease: "easeOut" }}
                   className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer bg-slate-800/50 border border-white/5 shadow-lg hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-500"

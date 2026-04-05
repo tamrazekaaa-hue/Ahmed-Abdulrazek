@@ -4,6 +4,9 @@ import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { AudioRecorder, AudioPlayer } from '../lib/audioUtils';
+import { auth, db } from '../firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { doc, setDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 
 // Initialize Gemini inside components to capture dynamic API keys
 // const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -11,7 +14,7 @@ import { AudioRecorder, AudioPlayer } from '../lib/audioUtils';
 const SYSTEM_INSTRUCTION = `You are an AI assistant answering on behalf of Ahmed Abdelrazek Abdelhakim, an MEP Director & Senior Project Management Professional (PMP).
 Your primary directive is to answer questions SPECIFICALLY, CORRECTLY, and ON THE SPOT. 
 Do not use filler words. Be direct, factual, and concise. Do not hallucinate information.
-You can speak and understand both English and Egyptian Arabic. Respond in the language the user speaks to you. Maintain a highly professional and intuitive tone.
+You can speak and understand both English and Egyptian Arabic. Respond in the language the user speaks to you. Maintain a serious, authoritative, and highly professional tone.
 
 FACTS ABOUT AHMED:
 - Experience: 20+ years in large-scale MEP, infrastructure, and building projects across Saudi Arabia.
@@ -51,6 +54,8 @@ export default function Chatbot() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<any>(null);
@@ -58,6 +63,12 @@ export default function Chatbot() {
   const recorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
   const sessionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopVoiceSession();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!chatRef.current) {
@@ -70,6 +81,49 @@ export default function Chatbot() {
       });
     }
     
+    // Initialize anonymous auth and session
+    const initChatSession = async () => {
+      try {
+        let uid = 'local-user';
+        try {
+          const userCredential = await signInAnonymously(auth);
+          uid = userCredential.user.uid;
+          setAuthError(null);
+          console.log("Firebase Chat Connection: SUCCESSFUL");
+        } catch (authErr: any) {
+          console.warn("Firebase Auth failed, using local session mode:", authErr);
+          if (authErr.code === 'auth/admin-restricted-operation') {
+            setAuthError("Anonymous authentication is disabled in Firebase Console. Chats will not be saved to the database.");
+          }
+        }
+
+        const newSessionId = crypto.randomUUID();
+        setSessionId(newSessionId);
+        
+        const now = new Date();
+        const expiresAt = new Date();
+        expiresAt.setDate(now.getDate() + 3); // Expire in 3 days
+
+        // Only try to save to Firestore if we have a real UID (not 'local-user')
+        if (uid !== 'local-user') {
+          await setDoc(doc(db, 'chatSessions', newSessionId), {
+            userId: uid,
+            createdAt: Timestamp.fromDate(now),
+            lastUpdatedAt: Timestamp.fromDate(now),
+            expiresAt: Timestamp.fromDate(expiresAt),
+            messages: [
+              { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services.", timestamp: now.toISOString() }
+            ]
+          });
+        }
+        
+      } catch (error) {
+        console.error("Error initializing chat session:", error);
+      }
+    };
+
+    initChatSession();
+
     return () => {
       stopVoiceSession();
     };
@@ -118,7 +172,7 @@ export default function Chatbot() {
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Fenrir" } }
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } }
           },
           systemInstruction: SYSTEM_INSTRUCTION,
         }
@@ -160,8 +214,21 @@ export default function Chatbot() {
 
     const userMsg = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    const newMessages = [...messages, { role: 'user' as const, text: userMsg }];
+    setMessages(newMessages);
     setIsLoading(true);
+
+    // Save user message to Firestore
+    if (sessionId && auth.currentUser) {
+      try {
+        await updateDoc(doc(db, 'chatSessions', sessionId), {
+          lastUpdatedAt: Timestamp.now(),
+          messages: arrayUnion({ role: 'user', text: userMsg, timestamp: new Date().toISOString() })
+        });
+      } catch (e) {
+        console.error("Error saving message:", e);
+      }
+    }
 
     try {
       if (!chatRef.current) {
@@ -176,6 +243,18 @@ export default function Chatbot() {
       const response = await chatRef.current.sendMessage({ message: userMsg });
       if (response.text) {
         setMessages(prev => [...prev, { role: 'model', text: response.text }]);
+        
+        // Save model message to Firestore
+        if (sessionId && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'chatSessions', sessionId), {
+              lastUpdatedAt: Timestamp.now(),
+              messages: arrayUnion({ role: 'model', text: response.text, timestamp: new Date().toISOString() })
+            });
+          } catch (e) {
+            console.error("Error saving model message:", e);
+          }
+        }
       } else {
         throw new Error("No text in response");
       }
@@ -241,6 +320,11 @@ export default function Chatbot() {
               <>
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {authError && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-xs text-center mb-4">
+                      {authError}
+                    </div>
+                  )}
                   {voiceError && (
                     <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm text-center">
                       {voiceError}

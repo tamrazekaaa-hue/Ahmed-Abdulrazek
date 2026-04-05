@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat session between a visitor and the AI assistant.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The anonymous user ID of the visitor."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the chat started."
+        },
+        "lastUpdatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the last message was sent."
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the chat should be considered expired (3 days from creation)."
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": ["user", "model"]
+              },
+              "text": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": ["role", "text", "timestamp"]
+          }
+        }
+      },
+      "required": ["userId", "createdAt", "lastUpdatedAt", "expiresAt", "messages"]
+    }
+  },
+  "firestore": {
+    "/chatSessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/ChatSession"
+      },
+      "description": "Stores all chat sessions."
+    }
+  }
+}
