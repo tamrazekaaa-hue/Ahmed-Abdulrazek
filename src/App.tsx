@@ -153,23 +153,23 @@ export default function App() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-slate-950/50 backdrop-blur-md">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <a href="#" className="flex items-center gap-3">
             <img 
               src="/Logo.jpg" 
               alt="Ahmed Abdelrazek Logo" 
-              className="h-12 md:h-16 w-auto object-contain bg-white rounded-md p-1"
+              className="h-12 md:h-16 w-auto object-contain"
             />
           </a>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-            <a href="#services" className="hover:text-white transition-colors">Services</a>
-            <a href="#projects" className="hover:text-white transition-colors">Projects</a>
-            <a href="#credentials" className="hover:text-white transition-colors">Credentials</a>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+            <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
+            <a href="#projects" className="hover:text-blue-600 transition-colors">Projects</a>
+            <a href="#credentials" className="hover:text-blue-600 transition-colors">Credentials</a>
           </div>
           <a 
             href="#contact"
-            className="px-5 py-2.5 rounded-full bg-white text-slate-950 text-sm font-semibold hover:bg-slate-200 transition-colors"
+            className="px-5 py-2.5 rounded-full bg-blue-700 text-white text-sm font-semibold hover:bg-blue-600 transition-colors shadow-sm"
           >
             Contact Me
           </a>
