@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { MessageCircle, LogOut, Clock, User } from 'lucide-react';
+import { MessageCircle, LogOut, Clock, User, Eye } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [chats, setChats] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<any>(null);
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -27,6 +28,20 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!isAdmin) return;
+
+    // Fetch visitor count
+    const fetchVisitorCount = async () => {
+      try {
+        const visitorRef = doc(db, 'analytics', 'visitors');
+        const docSnap = await getDoc(visitorRef);
+        if (docSnap.exists()) {
+          setVisitorCount(docSnap.data().count);
+        }
+      } catch (error) {
+        console.error("Error fetching visitor count:", error);
+      }
+    };
+    fetchVisitorCount();
 
     const q = query(collection(db, 'chatSessions'), orderBy('lastUpdatedAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -85,11 +100,19 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col md:flex-row">
       {/* Sidebar */}
       <div className="w-full md:w-80 bg-slate-900 border-r border-white/10 flex flex-col h-screen">
-        <div className="p-6 border-b border-white/10 flex justify-between items-center">
-          <h2 className="font-bold text-xl">Chat Records</h2>
-          <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-white">
-            <LogOut className="w-5 h-5" />
-          </button>
+        <div className="p-6 border-b border-white/10 flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <h2 className="font-bold text-xl">Chat Records</h2>
+            <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-white" title="Sign Out">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+          {visitorCount !== null && (
+            <div className="flex items-center gap-2 text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg border border-white/5">
+              <Eye className="w-4 h-4 text-blue-400" />
+              <span>Total Unique Visitors: <strong className="text-white">{visitorCount.toLocaleString()}</strong></span>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {chats.length === 0 ? (

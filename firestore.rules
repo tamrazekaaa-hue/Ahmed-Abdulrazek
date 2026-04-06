@@ -36,5 +36,10 @@ service cloud.firestore {
                     
       allow delete: if isAdmin();
     }
+
+    match /analytics/{document} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

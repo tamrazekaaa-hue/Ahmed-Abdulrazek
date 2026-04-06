@@ -32,10 +32,13 @@ import {
   Music,
   VolumeX,
   ChevronLeft,
-  Maximize2
+  Maximize2,
+  Eye
 } from 'lucide-react';
 import Chatbot from './components/Chatbot';
 import AdminDashboard from './components/AdminDashboard';
+import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { db } from './firebase';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -60,9 +63,37 @@ function MainApp() {
   const [numPages, setNumPages] = useState<number>();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
+
+  useEffect(() => {
+    const trackVisitor = async () => {
+      try {
+        const visitorRef = doc(db, 'analytics', 'visitors');
+        const docSnap = await getDoc(visitorRef);
+        
+        if (!docSnap.exists()) {
+          await setDoc(visitorRef, { count: 1 });
+          setVisitorCount(1);
+        } else {
+          // Only increment if not already counted in this session
+          if (!sessionStorage.getItem('hasVisited')) {
+            await updateDoc(visitorRef, { count: increment(1) });
+            sessionStorage.setItem('hasVisited', 'true');
+            setVisitorCount(docSnap.data().count + 1);
+          } else {
+            setVisitorCount(docSnap.data().count);
+          }
+        }
+      } catch (error) {
+        console.error("Error tracking visitor:", error);
+      }
+    };
+
+    trackVisitor();
+  }, []);
 
   const services = [
     {
@@ -679,8 +710,14 @@ function MainApp() {
       </main>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-white/5 text-center text-slate-500 text-sm relative z-10">
+      <footer className="py-8 px-6 border-t border-white/5 text-center text-slate-500 text-sm relative z-10 flex flex-col items-center gap-2">
         <p>© {new Date().getFullYear()} Ahmed Abdelrazek. All rights reserved.</p>
+        {visitorCount !== null && (
+          <div className="flex items-center gap-2 text-xs bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+            <Eye className="w-3.5 h-3.5 text-blue-400" />
+            <span>{visitorCount.toLocaleString()} Visitors</span>
+          </div>
+        )}
       </footer>
 
       <Chatbot />
