@@ -44,7 +44,7 @@ WORK HISTORY:
 
 If asked a question, provide the exact answer immediately without conversational fluff.`;
 
-export default function Chatbot() {
+export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{role: 'user'|'model', text: string}[]>([
     { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services." }
@@ -274,28 +274,28 @@ export default function Chatbot() {
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-24 right-6 w-80 sm:w-96 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col h-[500px] max-h-[80vh]"
+            className={`fixed bottom-24 right-6 w-80 sm:w-96 border rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col h-[500px] max-h-[80vh] transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
           >
             {/* Header */}
-            <div className="bg-slate-800 p-4 border-b border-white/10 flex items-center justify-between">
+            <div className={`p-4 border-b flex items-center justify-between transition-colors ${theme === 'dark' ? 'bg-slate-800 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
                   <MessageCircle className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white text-sm">Ahmed</h3>
-                  <p className="text-xs text-emerald-400">Online</p>
+                  <h3 className={`font-semibold text-sm transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Ahmed</h3>
+                  <p className="text-xs text-emerald-500">Online</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={toggleVoiceMode} 
-                  className={`p-2 rounded-full transition-colors ${isVoiceMode ? 'bg-blue-600 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}
+                  className={`p-2 rounded-full transition-colors ${isVoiceMode ? 'bg-blue-600 text-white' : theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-200 text-slate-500 hover:text-slate-900'}`}
                   title={isVoiceMode ? "Switch to Text" : "Switch to Voice"}
                 >
                   {isVoiceMode ? <Volume2 className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white transition-colors p-2">
+                <button onClick={() => setIsOpen(false)} className={`transition-colors p-2 ${theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}>
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -303,23 +303,23 @@ export default function Chatbot() {
 
             {/* Content Area */}
             {isVoiceMode ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-900">
+              <div className={`flex-1 flex flex-col items-center justify-center p-8 transition-colors ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}>
                 <motion.div 
                   animate={isListening ? { scale: [1, 1.2, 1] } : {}}
                   transition={{ repeat: Infinity, duration: 2 }}
-                  className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${isListening ? 'bg-blue-600/20 text-blue-500' : 'bg-slate-800 text-slate-500'}`}
+                  className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${isListening ? 'bg-blue-600/20 text-blue-500' : theme === 'dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}
                 >
                   <Mic className="w-10 h-10" />
                 </motion.div>
-                <h3 className="text-xl font-semibold text-white mb-2">Voice Assistant</h3>
-                <p className="text-slate-400 text-center text-sm">
+                <h3 className={`text-xl font-semibold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Voice Assistant</h3>
+                <p className={`text-center text-sm transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                   {isListening ? "Listening... Speak in English or Egyptian Arabic." : "Connecting to voice server..."}
                 </p>
               </div>
             ) : (
               <>
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className={`flex-1 overflow-y-auto p-4 space-y-4 transition-colors ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50'}`}>
                   {authError && (
                     <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-xs text-center mb-4">
                       {authError}
@@ -332,9 +332,9 @@ export default function Chatbot() {
                   )}
                   {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-white/5 rounded-bl-none'}`}>
+                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm transition-colors ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none shadow-md' : theme === 'dark' ? 'bg-slate-800 text-slate-200 border border-white/5 rounded-bl-none' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none shadow-sm'}`}>
                         {msg.role === 'model' ? (
-                          <div className="prose prose-invert prose-sm max-w-none">
+                          <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert' : ''}`}>
                             <Markdown>{msg.text}</Markdown>
                           </div>
                         ) : (
@@ -345,7 +345,7 @@ export default function Chatbot() {
                   ))}
                   {isLoading && (
                     <div className="flex justify-start">
-                      <div className="bg-slate-800 border border-white/5 p-3 rounded-2xl rounded-bl-none">
+                      <div className={`p-3 rounded-2xl rounded-bl-none border transition-colors ${theme === 'dark' ? 'bg-slate-800 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                         <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
                       </div>
                     </div>
@@ -354,19 +354,19 @@ export default function Chatbot() {
                 </div>
 
                 {/* Input */}
-                <form onSubmit={handleSend} className="p-4 bg-slate-900 border-t border-white/10">
+                <form onSubmit={handleSend} className={`p-4 border-t transition-colors ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
                   <div className="relative">
                     <input
                       type="text"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Ask about Ahmed's experience..."
-                      className="w-full bg-slate-800 border border-white/10 rounded-full pl-4 pr-12 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className={`w-full border rounded-full pl-4 pr-12 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500'}`}
                     />
                     <button
                       type="submit"
                       disabled={!input.trim() || isLoading}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white disabled:opacity-50 hover:bg-blue-500 transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white disabled:opacity-50 hover:bg-blue-500 transition-colors shadow-sm"
                     >
                       <Send className="w-4 h-4 ml-0.5" />
                     </button>
@@ -380,7 +380,7 @@ export default function Chatbot() {
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-105 z-50"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 z-50"
       >
         {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
       </button>

@@ -1,5 +1,48 @@
 {
   "entities": {
+    "NewsItem": {
+      "title": "NewsItem",
+      "description": "A news or feed item to be displayed on the website.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the news item."
+        },
+        "content": {
+          "type": "string",
+          "description": "The content or description of the news."
+        },
+        "link": {
+          "type": "string",
+          "description": "Optional link for more information."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the news item was created."
+        }
+      },
+      "required": ["title", "content", "createdAt"]
+    },
+    "NewsletterSubscriber": {
+      "title": "NewsletterSubscriber",
+      "description": "A user who subscribed to the newsletter.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the subscriber."
+        },
+        "subscribedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the user subscribed."
+        }
+      },
+      "required": ["email", "subscribedAt"]
+    },
     "ChatSession": {
       "title": "ChatSession",
       "description": "A chat session between a visitor and the AI assistant.",
@@ -49,6 +92,18 @@
     }
   },
   "firestore": {
+    "/news_feed/{newsId}": {
+      "schema": {
+        "$ref": "#/entities/NewsItem"
+      },
+      "description": "Stores news and feed items."
+    },
+    "/newsletter_subscribers/{subscriberId}": {
+      "schema": {
+        "$ref": "#/entities/NewsletterSubscriber"
+      },
+      "description": "Stores newsletter subscriptions."
+    },
     "/chatSessions/{sessionId}": {
       "schema": {
         "$ref": "#/entities/ChatSession"

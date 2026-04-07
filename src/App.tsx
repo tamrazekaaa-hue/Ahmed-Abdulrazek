@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Document, Page, pdfjs } from 'react-pdf';
+import ReactMarkdown from 'react-markdown';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -33,40 +34,137 @@ import {
   VolumeX,
   ChevronLeft,
   Maximize2,
-  Eye
+  Eye,
+  Newspaper,
+  Clock,
+  Sun,
+  Moon,
+  Leaf
 } from 'lucide-react';
 import Chatbot from './components/Chatbot';
 import AdminDashboard from './components/AdminDashboard';
-import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, collection, addDoc, query, orderBy, onSnapshot, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-export default function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+type Theme = 'light' | 'dark';
+
+const GalleryImage = ({ src, alt, index, onClick }: { src: string, alt: string, index: number, onClick: () => void }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    const handleLocationChange = () => {
-      setCurrentPath(window.location.pathname);
+    if (imgRef.current?.complete) {
+      setIsLoaded(true);
+    }
+  }, [src]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.85 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.7, delay: index * 0.1, ease: "easeOut" }}
+      className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer bg-slate-900 border border-white/5 shadow-lg hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-500"
+      onClick={onClick}
+    >
+      {/* Sophisticated Skeleton Loader */}
+      {!isLoaded && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-800/80 overflow-hidden">
+          {/* Shimmer Effect */}
+          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+          
+          {/* Placeholder Icon */}
+          <div className="w-16 h-16 mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
+            <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          
+          {/* Loading Text */}
+          <div className="h-3 w-24 bg-slate-700/50 rounded-full overflow-hidden relative">
+            <div className="absolute top-0 left-0 h-full w-1/2 bg-blue-500/50 rounded-full animate-shimmer"></div>
+          </div>
+        </div>
+      )}
+      
+      <img 
+        ref={imgRef}
+        src={src} 
+        alt={alt} 
+        className={`w-full h-full object-cover transition-all duration-1000 group-hover:scale-125 ${isLoaded ? 'opacity-90 group-hover:opacity-100' : 'opacity-0'}`}
+        referrerPolicy="no-referrer"
+        onLoad={() => setIsLoaded(true)}
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=1000&auto=format&fit=crop&blur=100`;
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center z-20">
+        <motion.div 
+          whileHover={{ scale: 1.2, rotate: 90 }}
+          transition={{ type: "spring", stiffness: 200, damping: 10 }}
+        >
+          <Maximize2 className="w-10 h-10 text-white drop-shadow-lg" />
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+};
+
+export default function App() {
+  const [currentHash, setCurrentHash] = useState(window.location.hash);
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash);
     };
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  if (currentPath === '/admin') {
-    return <AdminDashboard />;
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  if (currentHash === '#admin') {
+    return <AdminDashboard theme={theme} toggleTheme={toggleTheme} />;
   }
 
-  return <MainApp />;
+  return <MainApp theme={theme} toggleTheme={toggleTheme} />;
 }
 
-function MainApp() {
+function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void }) {
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
+  const [newsItems, setNewsItems] = useState<any[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
+
+  useEffect(() => {
+    // Fetch News Feed
+    const qNews = query(collection(db, 'news_feed'), orderBy('createdAt', 'desc'));
+    const unsubscribeNews = onSnapshot(qNews, (snapshot) => {
+      setNewsItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribeNews();
+  }, []);
 
   useEffect(() => {
     const trackVisitor = async () => {
@@ -125,6 +223,11 @@ function MainApp() {
       icon: <Users className="w-6 h-6 text-amber-400" />,
       title: "Team Leadership",
       description: "Agile, SCRUM, Lean Six Sigma principles, and multidisciplinary team mentoring."
+    },
+    {
+      icon: <Leaf className="w-6 h-6 text-emerald-400" />,
+      title: "Sustainability",
+      description: "LEED Green Associate certified. Implementing energy-efficient solutions, green building standards, and sustainable MEP practices."
     }
   ];
 
@@ -270,20 +373,67 @@ function MainApp() {
     }
   ];
 
+  const [smtpStatus, setSmtpStatus] = useState<{ success: boolean; message: string; error?: string } | null>(null);
+
+  useEffect(() => {
+    const checkSmtp = async () => {
+      try {
+        const res = await fetch('/api/test-email');
+        const data = await res.json();
+        setSmtpStatus(data);
+      } catch (err) {
+        setSmtpStatus({ success: false, message: "Server unreachable" });
+      }
+    };
+    checkSmtp();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 selection:bg-blue-500/30 font-sans overflow-hidden">
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-950 text-slate-50' : 'bg-slate-50 text-slate-900'} selection:bg-blue-500/30 font-sans overflow-hidden`}>
+      {/* SMTP Configuration Warning Overlay */}
+      {smtpStatus && !smtpStatus.success && (
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600/95 backdrop-blur-md text-white px-4 py-3 flex flex-col md:flex-row items-center justify-center gap-4 shadow-2xl border-b border-red-500 animate-in slide-in-from-top duration-500">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-full animate-pulse">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div className="text-center md:text-left">
+              <p className="font-bold text-sm md:text-base leading-tight">SMTP Configuration Error: Notifications are Disabled</p>
+              <p className="text-xs opacity-90 mt-0.5">
+                {smtpStatus.error?.includes('535-5.7.8') 
+                  ? "Google rejected your login. You MUST use a 16-character 'App Password'." 
+                  : "Your server is unable to connect to the email service."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="px-3 py-1 bg-white text-red-600 rounded-full text-xs font-bold shadow-sm">
+              ACTION REQUIRED
+            </div>
+            <p className="text-xs font-medium">
+              Update <span className="font-bold">SMTP_PASSWORD</span> in Settings with a new App Password
+            </p>
+          </div>
+          <button 
+            onClick={() => setSmtpStatus(null)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-full transition-colors hidden md:block"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {/* Animated Background - Using Logo Colors (Blue & Bronze/Amber) */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-700/20 blur-[120px] mix-blend-screen" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-amber-600/15 blur-[120px] mix-blend-screen" />
+        <div className={`absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full ${theme === 'dark' ? 'bg-blue-700/20' : 'bg-blue-400/10'} blur-[120px] mix-blend-screen`} />
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full ${theme === 'dark' ? 'bg-amber-600/15' : 'bg-amber-400/10'} blur-[120px] mix-blend-screen`} />
         <motion.div 
           style={{ y }}
-          className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"
+          className={`absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] ${theme === 'dark' ? 'opacity-20' : 'opacity-10'} mix-blend-overlay`}
         />
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+      <nav className={`fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300 ${theme === 'dark' ? 'border-slate-800 bg-slate-950/80' : 'border-slate-200 bg-white/80'} backdrop-blur-md shadow-sm`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <a href="#" className="flex items-center gap-3">
             <img 
@@ -292,19 +442,29 @@ function MainApp() {
               className="h-12 md:h-16 w-auto object-contain"
             />
           </a>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+          <div className={`hidden md:flex items-center gap-8 text-sm font-medium transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
             <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
             <a href="#projects" className="hover:text-blue-600 transition-colors">Projects</a>
+            <a href="#news" className="hover:text-blue-600 transition-colors">News</a>
             <a href="#insights" className="hover:text-blue-600 transition-colors">Insights</a>
             <a href="#gallery" className="hover:text-blue-600 transition-colors">Gallery</a>
             <a href="#credentials" className="hover:text-blue-600 transition-colors">Credentials</a>
           </div>
-          <a 
-            href="#contact"
-            className="px-5 py-2.5 rounded-full bg-blue-700 text-white text-sm font-semibold hover:bg-blue-600 transition-colors shadow-sm"
-          >
-            Contact Me
-          </a>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleTheme}
+              className={`p-2 rounded-full transition-all duration-300 ${theme === 'dark' ? 'bg-slate-800 text-amber-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <a 
+              href="#contact"
+              className="px-5 py-2.5 rounded-full bg-blue-700 text-white text-sm font-semibold hover:bg-blue-600 transition-colors shadow-sm"
+            >
+              Contact Me
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -321,7 +481,7 @@ function MainApp() {
               <img 
                 src="/Photo.jpg" 
                 alt="Ahmed Abdelrazek" 
-                className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-slate-800 mx-auto object-cover shadow-2xl"
+                className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 mx-auto object-cover shadow-2xl transition-colors ${theme === 'dark' ? 'border-slate-800' : 'border-white'}`}
               />
             </motion.div>
 
@@ -329,7 +489,7 @@ function MainApp() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-slate-300 mb-6"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-colors text-sm mb-6 ${theme === 'dark' ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
             >
               <MapPin className="w-4 h-4 text-amber-500" />
               Jeddah, Saudi Arabia
@@ -354,7 +514,7 @@ function MainApp() {
               className="text-xl md:text-2xl font-medium mb-8 tracking-wide flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3"
             >
               <span className="text-green-500 italic">Design for Operation</span>
-              <span className="text-slate-500 hidden sm:inline">|</span>
+              <span className={`hidden sm:inline ${theme === 'dark' ? 'text-slate-500' : 'text-slate-300'}`}>|</span>
               <span className="text-orange-500 italic">Build for Value</span>
             </motion.h2>
             
@@ -362,7 +522,7 @@ function MainApp() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="text-lg md:text-xl text-slate-400 mb-10 max-w-3xl mx-auto leading-relaxed"
+              className={`text-lg md:text-xl mb-10 max-w-3xl mx-auto leading-relaxed transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}
             >
               Over 20 years of experience leading large-scale MEP, infrastructure, and building projects across Saudi Arabia. Expert in full project lifecycle management, cost and schedule control, stakeholder coordination, and risk mitigation.
             </motion.p>
@@ -411,11 +571,11 @@ function MainApp() {
         </section>
 
         {/* Services Section (First Design Style) */}
-        <section id="services" className="py-32 px-6 bg-slate-950/50 border-y border-white/5">
+        <section id="services" className={`py-32 px-6 transition-colors duration-300 border-y ${theme === 'dark' ? 'bg-slate-950/50 border-white/5' : 'bg-slate-100/50 border-slate-200'}`}>
           <div className="max-w-7xl mx-auto">
             <div className="mb-16 md:mb-24">
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">My Services & Expertise</h2>
-              <p className="text-slate-400 text-lg max-w-2xl">
+              <p className={`text-lg max-w-2xl transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                 Comprehensive solutions tailored to your specific needs, backed by over 20 years of industry experience.
               </p>
             </div>
@@ -428,13 +588,13 @@ function MainApp() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group"
+                  className={`p-8 rounded-3xl border transition-all duration-300 group ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-xl'}`}
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
                     {service.icon}
                   </div>
                   <h3 className="text-xl font-semibold mb-3">{service.title}</h3>
-                  <p className="text-slate-400 leading-relaxed">
+                  <p className={`leading-relaxed transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                     {service.description}
                   </p>
                 </motion.div>
@@ -448,7 +608,7 @@ function MainApp() {
           <div className="max-w-7xl mx-auto">
             <div className="mb-16 md:mb-24 text-center max-w-3xl mx-auto">
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Featured Projects</h2>
-              <p className="text-slate-400 text-lg">
+              <p className={`text-lg transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                 A showcase of key projects delivered, highlighting my roles and core responsibilities.
               </p>
             </div>
@@ -461,18 +621,18 @@ function MainApp() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex flex-col h-full"
+                  className={`p-8 rounded-3xl border transition-all duration-300 flex flex-col h-full ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-xl'}`}
                 >
                   <div className="mb-6">
-                    <h3 className="text-2xl font-bold text-white mb-2">{project.name}</h3>
+                    <h3 className={`text-2xl font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.name}</h3>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-sm font-medium border border-blue-500/20">
                       <Briefcase className="w-4 h-4" />
                       {project.role}
                     </div>
                   </div>
                   <div className="flex-grow">
-                    <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Key Duties</h4>
-                    <ul className="space-y-3 text-slate-400 leading-relaxed">
+                    <h4 className={`text-sm font-semibold uppercase tracking-wider mb-4 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>Key Duties</h4>
+                    <ul className={`space-y-3 leading-relaxed transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                       {project.duties.map((duty, dIdx) => (
                         <li key={dIdx} className="flex items-start gap-3">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-2" />
@@ -487,12 +647,114 @@ function MainApp() {
           </div>
         </section>
 
+        {/* News Feed Section */}
+        {newsItems.length > 0 && (
+          <section id="news" className={`py-32 px-6 transition-colors duration-300 border-y ${theme === 'dark' ? 'bg-slate-900/30 border-white/5' : 'bg-slate-100/30 border-slate-200'}`}>
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-16 md:mb-24 text-center max-w-3xl mx-auto">
+                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">News & Updates</h2>
+                <p className={`text-lg transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  The latest announcements, project updates, and industry news.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-16 max-w-7xl mx-auto">
+                {newsItems.map((item, index) => (
+                  <motion.div 
+                    key={item.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                    className={`rounded-[2.5rem] border transition-all duration-500 flex flex-col lg:flex-row group overflow-hidden shadow-2xl items-stretch ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 hover:shadow-blue-500/5' : 'bg-white border-slate-200 hover:shadow-blue-500/10'}`}
+                  >
+                    {item.imageUrl && (
+                      <div className={`w-full lg:w-auto lg:max-w-[50%] xl:max-w-[55%] relative flex items-center justify-center p-6 lg:p-12 border-b lg:border-b-0 lg:border-r shrink-0 min-h-[300px] transition-colors ${theme === 'dark' ? 'bg-slate-950/80 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.title} 
+                          className="w-auto h-auto max-w-full max-h-[500px] lg:max-h-[700px] object-contain transition-transform duration-1000 group-hover:scale-105 drop-shadow-2xl rounded-xl"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    <div className={`p-8 md:p-12 lg:p-16 flex flex-col flex-grow w-full ${item.imageUrl ? 'lg:w-0' : ''}`}>
+                      <div className="flex items-center justify-between mb-10">
+                        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                          <Newspaper className="w-4 h-4" />
+                          Industry Update
+                        </div>
+                        <span className={`font-medium text-sm transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {item.createdAt?.toDate().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
+                      </div>
+                      
+                      <h3 
+                        dir="auto"
+                        className={`text-3xl md:text-4xl lg:text-5xl font-bold mb-8 group-hover:text-blue-400 transition-colors leading-[1.15] tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}
+                      >
+                        {item.title}
+                      </h3>
+                      
+                      <div 
+                        dir="auto"
+                        className={`mb-12 text-lg md:text-xl font-normal opacity-90 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}
+                      >
+                        <ReactMarkdown 
+                          components={{
+                            p: ({node, ...props}) => <p className="mb-6 leading-relaxed last:mb-0 whitespace-pre-wrap" {...props} />,
+                            ul: ({node, ...props}) => <ul className="mb-6 space-y-3 list-none" {...props} />,
+                            ol: ({node, ...props}) => <ol className="mb-6 space-y-3 list-decimal pl-5" {...props} />,
+                            li: ({node, ...props}) => <li className="leading-relaxed flex items-start gap-3" {...props} />,
+                            h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mb-4 mt-8" {...props} />,
+                            h2: ({node, ...props}) => <h2 className="text-xl font-bold text-white mb-4 mt-8" {...props} />,
+                            h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white mb-3 mt-6" {...props} />,
+                            strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                            a: ({node, ...props}) => <a className="text-blue-400 hover:text-blue-300 underline underline-offset-4" target="_blank" rel="noreferrer" {...props} />,
+                            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic my-6 text-slate-400" {...props} />
+                          }}
+                        >
+                          {item.content}
+                        </ReactMarkdown>
+                      </div>
+                      
+                      <div className="mt-auto pt-8 border-t border-white/5 flex items-center justify-between">
+                        {item.link ? (
+                          <a 
+                            href={item.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-3 text-base font-bold text-white hover:text-blue-400 transition-all group/link"
+                          >
+                            <span className="relative">
+                              Read Full Article
+                              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-400 transition-all duration-300 group-hover/link:w-full" />
+                            </span>
+                            <ExternalLink className="w-5 h-5 transition-transform group-hover/link:translate-x-1 group-hover/link:-translate-y-1" />
+                          </a>
+                        ) : (
+                          <div />
+                        )}
+                        
+                        <div className="flex items-center gap-2 text-slate-500 text-xs font-medium uppercase tracking-widest">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{Math.ceil(item.content.split(' ').length / 200)} min read</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Insights Section (Articles & Presentations) */}
         <section id="insights" className="py-32 px-6">
           <div className="max-w-7xl mx-auto">
             <div className="mb-16 md:mb-24 text-center max-w-3xl mx-auto">
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Articles & Presentations</h2>
-              <p className="text-slate-400 text-lg">
+              <p className={`text-lg transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                 Sharing knowledge, industry insights, and best practices from over two decades of experience.
               </p>
             </div>
@@ -505,29 +767,29 @@ function MainApp() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex flex-col h-full group"
+                  className={`p-8 rounded-3xl border transition-all duration-300 flex flex-col h-full group ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-xl'}`}
                 >
                   <div className="flex items-center justify-between mb-6">
                     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium border ${item.type === 'Article' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
                       {item.icon}
                       {item.type}
                     </div>
-                    <span className="text-slate-500 text-sm">{item.date}</span>
+                    <span className={`text-sm transition-colors ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{item.date}</span>
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3 group-hover:text-blue-400 transition-colors">{item.title}</h3>
-                  <p className="text-slate-400 leading-relaxed mb-8 flex-grow">
+                  <h3 className={`text-xl font-bold mb-3 group-hover:text-blue-400 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{item.title}</h3>
+                  <p className={`leading-relaxed mb-8 flex-grow transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                     {item.description}
                   </p>
                   {item.link !== '#' ? (
                     <button 
                       onClick={() => setSelectedPdf(item.link)}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-blue-400 transition-colors mt-auto text-left"
+                      className={`inline-flex items-center gap-2 text-sm font-semibold hover:text-blue-400 transition-colors mt-auto text-left ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}
                     >
                       {item.type === 'Article' ? 'Read Article' : 'View Presentation'}
                       <ExternalLink className="w-4 h-4" />
                     </button>
                   ) : (
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 mt-auto">
+                    <span className={`inline-flex items-center gap-2 text-sm font-semibold mt-auto ${theme === 'dark' ? 'text-slate-600' : 'text-slate-300'}`}>
                       Coming Soon
                     </span>
                   )}
@@ -538,16 +800,16 @@ function MainApp() {
         </section>
 
         {/* Gallery Section */}
-        <section id="gallery" className="py-32 px-6 bg-slate-900/30 border-t border-white/5">
+        <section id="gallery" className={`py-32 px-6 transition-colors duration-300 border-t ${theme === 'dark' ? 'bg-slate-900/30 border-white/5' : 'bg-slate-100/30 border-slate-200'}`}>
           <div className="max-w-7xl mx-auto">
             <div className="mb-16 md:mb-24 text-center max-w-3xl mx-auto flex flex-col items-center">
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Visual Journey</h2>
-              <p className="text-slate-400 text-lg mb-8">
+              <p className={`text-lg mb-8 transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                 A collection of moments, projects, and milestones from the field.
               </p>
               <button 
                 onClick={toggleMusic}
-                className={`inline-flex items-center gap-3 px-8 py-4 rounded-full font-medium transition-all duration-500 ${isMusicPlaying ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.3)] scale-105' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 hover:scale-105'}`}
+                className={`inline-flex items-center gap-3 px-8 py-4 rounded-full font-medium transition-all duration-500 ${isMusicPlaying ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.3)] scale-105' : theme === 'dark' ? 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 hover:scale-105' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:scale-105 shadow-sm'}`}
               >
                 {isMusicPlaying ? (
                   <div className="flex items-end gap-1 h-5">
@@ -565,42 +827,20 @@ function MainApp() {
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
               {galleryPhotos.map((photo, index) => (
-                <motion.div 
+                <GalleryImage 
                   key={index}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ duration: 0.7, delay: index * 0.1, ease: "easeOut" }}
-                  className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer bg-slate-800/50 border border-white/5 shadow-lg hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-500"
+                  src={photo}
+                  alt={`Gallery image ${index + 1}`}
+                  index={index}
                   onClick={() => setSelectedPhotoIndex(index)}
-                >
-                  <div className="absolute inset-0 bg-slate-800 animate-pulse -z-10"></div>
-                  <img 
-                    src={photo} 
-                    alt={`Gallery image ${index + 1}`} 
-                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125 opacity-90 group-hover:opacity-100"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      // Fallback if image isn't uploaded yet
-                      (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=1000&auto=format&fit=crop&blur=100`;
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center">
-                    <motion.div 
-                      whileHover={{ scale: 1.2, rotate: 90 }}
-                      transition={{ type: "spring", stiffness: 200, damping: 10 }}
-                    >
-                      <Maximize2 className="w-10 h-10 text-white drop-shadow-lg" />
-                    </motion.div>
-                  </div>
-                </motion.div>
+                />
               ))}
             </div>
           </div>
         </section>
 
         {/* Credentials Section */}
-        <section id="credentials" className="py-32 px-6 bg-slate-900/50 border-y border-white/5">
+        <section id="credentials" className={`py-32 px-6 transition-colors duration-300 border-y ${theme === 'dark' ? 'bg-slate-900/50 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-16">
               
@@ -618,10 +858,10 @@ function MainApp() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.4, delay: index * 0.1 }}
-                      className="flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                      className={`flex items-center gap-4 p-5 rounded-2xl border transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:border-blue-500 shadow-sm'}`}
                     >
                       <CheckCircle2 className="w-6 h-6 text-amber-500 shrink-0" />
-                      <span className="font-medium text-slate-200 text-lg">{cert}</span>
+                      <span className={`font-medium text-lg transition-colors ${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{cert}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -638,11 +878,11 @@ function MainApp() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4 }}
-                  className="p-8 rounded-3xl bg-white/5 border border-white/10"
+                  className={`p-8 rounded-3xl border transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}
                 >
-                  <h3 className="text-2xl font-semibold text-white mb-2">Bachelor of Mechanical Engineering</h3>
+                  <h3 className={`text-2xl font-semibold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Bachelor of Mechanical Engineering</h3>
                   <p className="text-blue-400 font-medium mb-4">Power & Energy</p>
-                  <div className="flex items-center gap-2 text-slate-400">
+                  <div className={`flex items-center gap-2 transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <MapPin className="w-4 h-4" />
                     <span>Egypt</span>
                     <span className="mx-2">•</span>
@@ -665,21 +905,21 @@ function MainApp() {
               transition={{ duration: 0.5 }}
             >
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">Let's Connect</h2>
-              <p className="text-slate-400 text-lg mb-12 max-w-2xl mx-auto">
+              <p className={`text-lg mb-12 max-w-2xl mx-auto transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                 Whether you have a project in mind or just want to discuss industry trends, I'm always open to connecting.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
                 <a 
                   href="mailto:ahmed_abd_alrazek@yahoo.com"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-white text-slate-950 font-semibold hover:bg-slate-200 transition-colors text-lg"
+                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full font-semibold transition-all text-lg shadow-lg ${theme === 'dark' ? 'bg-white text-slate-950 hover:bg-slate-200' : 'bg-blue-700 text-white hover:bg-blue-600 shadow-blue-700/20'}`}
                 >
                   <Mail className="w-5 h-5" />
                   ahmed_abd_alrazek@yahoo.com
                 </a>
                 <a 
                   href="tel:00966567297258"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors border border-white/10 text-lg"
+                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full font-semibold transition-all border text-lg ${theme === 'dark' ? 'bg-white/10 text-white border-white/10 hover:bg-white/20' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm'}`}
                 >
                   <Phone className="w-5 h-5" />
                   +966 56 729 7258
@@ -691,7 +931,7 @@ function MainApp() {
                   href="https://www.linkedin.com/in/ahmed-abdulrazek-82b5a9a1" 
                   target="_blank"
                   rel="noreferrer"
-                  className="p-4 rounded-full bg-white/5 text-slate-400 hover:text-white hover:bg-blue-600 transition-all"
+                  className={`p-4 rounded-full transition-all ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-blue-600' : 'bg-slate-100 text-slate-500 hover:text-white hover:bg-blue-600'}`}
                 >
                   <Linkedin className="w-6 h-6" />
                 </a>
@@ -699,7 +939,7 @@ function MainApp() {
                   href="https://youtube.com/@fekra-aaa?si=oaijW_pBfQ_EhVEd" 
                   target="_blank"
                   rel="noreferrer"
-                  className="p-4 rounded-full bg-white/5 text-slate-400 hover:text-white hover:bg-red-600 transition-all"
+                  className={`p-4 rounded-full transition-all ${theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-red-600' : 'bg-slate-100 text-slate-500 hover:text-white hover:bg-red-600'}`}
                 >
                   <Youtube className="w-6 h-6" />
                 </a>
@@ -710,24 +950,33 @@ function MainApp() {
       </main>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-white/5 text-center text-slate-500 text-sm relative z-10 flex flex-col items-center gap-2">
+      <footer className={`py-8 px-6 border-t text-center text-sm relative z-10 flex flex-col items-center gap-4 transition-colors ${theme === 'dark' ? 'border-white/5 text-slate-500' : 'border-slate-200 text-slate-500 bg-white'}`}>
         <p>© {new Date().getFullYear()} Ahmed Abdelrazek. All rights reserved.</p>
-        {visitorCount !== null && (
-          <div className="flex items-center gap-2 text-xs bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-            <Eye className="w-3.5 h-3.5 text-blue-400" />
-            <span>{visitorCount.toLocaleString()} Visitors</span>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {visitorCount !== null && (
+            <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+              <Eye className="w-3.5 h-3.5 text-slate-400" />
+              <span>{visitorCount.toLocaleString()} Visitors</span>
+            </div>
+          )}
+          <a 
+            href="#admin"
+            className="flex items-center gap-2 text-xs bg-blue-600/20 text-blue-400 px-4 py-1.5 rounded-full border border-blue-500/30 hover:bg-blue-600/40 transition-colors cursor-pointer font-medium"
+            title="Admin Access"
+          >
+            Admin Dashboard
+          </a>
+        </div>
       </footer>
 
-      <Chatbot />
+      <Chatbot theme={theme} />
 
       {/* PDF Viewer Modal */}
       {selectedPdf && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 md:p-8 backdrop-blur-sm">
-          <div className="relative w-full max-w-5xl h-full bg-slate-900 rounded-2xl border border-white/10 overflow-hidden flex flex-col shadow-2xl">
-            <div className="flex justify-between items-center p-4 border-b border-white/10 bg-slate-950 shrink-0">
-              <h3 className="text-white font-semibold flex items-center gap-2">
+          <div className={`relative w-full max-w-5xl h-full rounded-2xl border overflow-hidden flex flex-col shadow-2xl transition-colors ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className={`flex justify-between items-center p-4 border-b shrink-0 transition-colors ${theme === 'dark' ? 'border-white/10 bg-slate-950' : 'border-slate-200 bg-slate-50'}`}>
+              <h3 className={`font-semibold flex items-center gap-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                 <FileText className="w-5 h-5 text-blue-400" />
                 Document Viewer
               </h3>
@@ -736,18 +985,18 @@ function MainApp() {
                   setSelectedPdf(null);
                   setNumPages(undefined);
                 }}
-                className="text-slate-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"
+                className={`transition-colors p-2 rounded-full ${theme === 'dark' ? 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 bg-slate-200 hover:bg-slate-300'}`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-grow w-full h-full relative bg-slate-800 overflow-y-auto custom-scrollbar p-4 md:p-8">
+            <div className={`flex-grow w-full h-full relative overflow-y-auto custom-scrollbar p-4 md:p-8 transition-colors ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
               <div className="max-w-4xl mx-auto flex flex-col items-center">
                 <Document 
                   file={selectedPdf} 
                   onLoadSuccess={({ numPages }) => setNumPages(numPages)}
                   loading={
-                    <div className="text-slate-400 flex flex-col items-center gap-4 py-20">
+                    <div className={`flex flex-col items-center gap-4 py-20 transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                       <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                       <p>Loading document...</p>
                     </div>
@@ -824,7 +1073,6 @@ function MainApp() {
         src="/background-music.mp3" 
         loop 
         preload="auto"
-        autoPlay
       />
     </div>
   );
