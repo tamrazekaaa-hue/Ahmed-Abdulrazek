@@ -905,23 +905,6 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       {/* Footer */}
       <footer className={`py-8 px-6 border-t text-center text-sm relative z-10 flex flex-col items-center gap-4 transition-colors ${theme === 'dark' ? 'border-white/5 text-slate-500' : 'border-slate-200 text-slate-500 bg-white'}`}>
         <p>© {new Date().getFullYear()} Ahmed Abdelrazek. All rights reserved.</p>
-        <div className="flex items-center gap-4">
-          {visitorCount !== null && (
-            <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-              <Eye className="w-3.5 h-3.5 text-slate-400" />
-              <span>{visitorCount.toLocaleString()} Visitors</span>
-            </div>
-          )}
-          {!window.location.hostname.includes('ais-pre-') && (
-            <a 
-              href="#admin"
-              className="flex items-center gap-2 text-xs bg-blue-600/20 text-blue-400 px-4 py-1.5 rounded-full border border-blue-500/30 hover:bg-blue-600/40 transition-colors cursor-pointer font-medium"
-              title="Admin Access"
-            >
-              Admin Dashboard
-            </a>
-          )}
-        </div>
       </footer>
 
       <Chatbot theme={theme} />
