@@ -912,13 +912,15 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
               <span>{visitorCount.toLocaleString()} Visitors</span>
             </div>
           )}
-          <a 
-            href="#admin"
-            className="flex items-center gap-2 text-xs bg-blue-600/20 text-blue-400 px-4 py-1.5 rounded-full border border-blue-500/30 hover:bg-blue-600/40 transition-colors cursor-pointer font-medium"
-            title="Admin Access"
-          >
-            Admin Dashboard
-          </a>
+          {!window.location.hostname.includes('ais-pre-') && (
+            <a 
+              href="#admin"
+              className="flex items-center gap-2 text-xs bg-blue-600/20 text-blue-400 px-4 py-1.5 rounded-full border border-blue-500/30 hover:bg-blue-600/40 transition-colors cursor-pointer font-medium"
+              title="Admin Access"
+            >
+              Admin Dashboard
+            </a>
+          )}
         </div>
       </footer>
 
