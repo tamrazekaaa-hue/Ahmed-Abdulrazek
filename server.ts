@@ -80,21 +80,6 @@ async function startServer() {
     }
   });
 
-  // Test endpoint to manually trigger a connection check
-  app.get('/api/test-email', async (req, res) => {
-    console.log("[SMTP] Manual test triggered...");
-    try {
-      await transporter.verify();
-      res.json({ success: true, message: "SMTP Connection is working perfectly!" });
-    } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: "SMTP Connection failed", 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-    }
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

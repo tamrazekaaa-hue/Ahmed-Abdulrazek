@@ -373,55 +373,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     }
   ];
 
-  const [smtpStatus, setSmtpStatus] = useState<{ success: boolean; message: string; error?: string } | null>(null);
-
-  useEffect(() => {
-    const checkSmtp = async () => {
-      try {
-        const res = await fetch('/api/test-email');
-        const data = await res.json();
-        setSmtpStatus(data);
-      } catch (err) {
-        setSmtpStatus({ success: false, message: "Server unreachable" });
-      }
-    };
-    checkSmtp();
-  }, []);
-
   return (
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-950 text-slate-50' : 'bg-slate-50 text-slate-900'} selection:bg-blue-500/30 font-sans overflow-hidden`}>
-      {/* SMTP Configuration Warning Overlay */}
-      {smtpStatus && !smtpStatus.success && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600/95 backdrop-blur-md text-white px-4 py-3 flex flex-col md:flex-row items-center justify-center gap-4 shadow-2xl border-b border-red-500 animate-in slide-in-from-top duration-500">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-full animate-pulse">
-              <Mail className="w-5 h-5" />
-            </div>
-            <div className="text-center md:text-left">
-              <p className="font-bold text-sm md:text-base leading-tight">SMTP Configuration Error: Notifications are Disabled</p>
-              <p className="text-xs opacity-90 mt-0.5">
-                {smtpStatus.error?.includes('535-5.7.8') 
-                  ? "Google rejected your login. You MUST use a 16-character 'App Password'." 
-                  : "Your server is unable to connect to the email service."}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 bg-white text-red-600 rounded-full text-xs font-bold shadow-sm">
-              ACTION REQUIRED
-            </div>
-            <p className="text-xs font-medium">
-              Update <span className="font-bold">SMTP_PASSWORD</span> in Settings with a new App Password
-            </p>
-          </div>
-          <button 
-            onClick={() => setSmtpStatus(null)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-full transition-colors hidden md:block"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
       {/* Animated Background - Using Logo Colors (Blue & Bronze/Amber) */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className={`absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full ${theme === 'dark' ? 'bg-blue-700/20' : 'bg-blue-400/10'} blur-[120px] mix-blend-screen`} />
