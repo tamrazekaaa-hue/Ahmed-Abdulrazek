@@ -89,6 +89,24 @@
         }
       },
       "required": ["userId", "createdAt", "lastUpdatedAt", "expiresAt", "messages"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A portfolio project.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "duties": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "challenges": { "type": "string" },
+        "solutions": { "type": "string" },
+        "achievements": { "type": "string" },
+        "order": { "type": "number", "description": "Used for sorting projects" }
+      },
+      "required": ["name", "role", "duties"]
     }
   },
   "firestore": {
@@ -109,6 +127,12 @@
         "$ref": "#/entities/ChatSession"
       },
       "description": "Stores all chat sessions."
+    },
+    "/projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/Project"
+      },
+      "description": "Stores portfolio projects."
     }
   }
 }

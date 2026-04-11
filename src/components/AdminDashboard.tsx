@@ -2,16 +2,17 @@ import React, { useEffect, useState, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, Timestamp, doc, getDoc, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { MessageCircle, LogOut, Clock, User, Eye, Newspaper, Plus, Trash2, Mail, Home, Pencil, X, Sun, Moon } from 'lucide-react';
+import { MessageCircle, LogOut, Clock, User, Eye, Newspaper, Plus, Trash2, Mail, Home, Pencil, X, Sun, Moon, Briefcase } from 'lucide-react';
 
 export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' | 'dark', toggleTheme: () => void }) {
   const [chats, setChats] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'chats' | 'news'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'news' | 'projects'>('chats');
   
   // News Form State
   const [newsTitle, setNewsTitle] = useState('');
@@ -23,6 +24,19 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
   const [deletingNewsId, setDeletingNewsId] = useState<string | null>(null);
   const [deletingSubscriberId, setDeletingSubscriberId] = useState<string | null>(null);
+
+  // Project Form State
+  const [projectName, setProjectName] = useState('');
+  const [projectRole, setProjectRole] = useState('');
+  const [projectDuties, setProjectDuties] = useState('');
+  const [projectChallenges, setProjectChallenges] = useState('');
+  const [projectSolutions, setProjectSolutions] = useState('');
+  const [projectAchievements, setProjectAchievements] = useState('');
+  const [projectOrder, setProjectOrder] = useState(0);
+  const [isSubmittingProject, setIsSubmittingProject] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const loginInProgress = useRef(false);
@@ -77,7 +91,12 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
       const now = new Date();
       const validChats = chatData.filter(chat => {
         if (chat.expiresAt) {
-          return (chat.expiresAt as Timestamp).toDate() > now;
+          const isExpired = (chat.expiresAt as Timestamp).toDate() < now;
+          if (isExpired) {
+            // Prune expired chat session
+            deleteDoc(doc(db, 'chatSessions', chat.id)).catch(e => console.error("Error pruning chat:", e));
+            return false;
+          }
         }
         return true;
       });
@@ -91,9 +110,16 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
       setNews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Fetch Projects
+    const qProjects = query(collection(db, 'projects'), orderBy('order', 'asc'));
+    const unsubscribeProjects = onSnapshot(qProjects, (snapshot) => {
+      setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubscribeChats();
       unsubscribeNews();
+      unsubscribeProjects();
     };
   }, [isAdmin]);
 
@@ -111,7 +137,7 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error("Login error:", error);
-      if (error.code === 'auth/cancelled-popup-request') {
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
         // Ignore this specific error as it just means the user closed the popup
         console.log("Popup closed by user.");
       } else if (error.code === 'auth/popup-blocked') {
@@ -279,6 +305,90 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
     }
   };
 
+  const handleAddProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectName || !projectRole || !projectDuties) return;
+    
+    setIsSubmittingProject(true);
+    try {
+      const dutiesList = projectDuties.split('\n').filter(d => d.trim() !== '');
+      
+      const projectData: any = {
+        name: projectName,
+        role: projectRole,
+        duties: dutiesList,
+        order: projectOrder,
+        challenges: projectChallenges || '',
+        solutions: projectSolutions || '',
+        achievements: projectAchievements || ''
+      };
+      
+      if (editingProjectId) {
+        await updateDoc(doc(db, 'projects', editingProjectId), projectData);
+      } else {
+        await addDoc(collection(db, 'projects'), projectData);
+      }
+      
+      setProjectName('');
+      setProjectRole('');
+      setProjectDuties('');
+      setProjectChallenges('');
+      setProjectSolutions('');
+      setProjectAchievements('');
+      setProjectOrder(projects.length + 1);
+      setEditingProjectId(null);
+    } catch (error) {
+      console.error("Error saving project:", error);
+      alert("Failed to save project.");
+    } finally {
+      setIsSubmittingProject(false);
+    }
+  };
+
+  const handleEditProject = (project: any) => {
+    setProjectName(project.name || '');
+    setProjectRole(project.role || '');
+    setProjectDuties(project.duties ? project.duties.join('\n') : '');
+    setProjectChallenges(project.challenges || '');
+    setProjectSolutions(project.solutions || '');
+    setProjectAchievements(project.achievements || '');
+    setProjectOrder(project.order || 0);
+    setEditingProjectId(project.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const editId = sessionStorage.getItem('editProjectId');
+    if (editId && projects.length > 0) {
+      const projectToEdit = projects.find(p => p.id === editId);
+      if (projectToEdit) {
+        handleEditProject(projectToEdit);
+        sessionStorage.removeItem('editProjectId');
+      }
+    }
+  }, [projects]);
+
+  const cancelEditProject = () => {
+    setProjectName('');
+    setProjectRole('');
+    setProjectDuties('');
+    setProjectChallenges('');
+    setProjectSolutions('');
+    setProjectAchievements('');
+    setProjectOrder(projects.length);
+    setEditingProjectId(null);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!deletingProjectId) return;
+    try {
+      await deleteDoc(doc(db, 'projects', deletingProjectId));
+      setDeletingProjectId(null);
+    } catch (error) {
+      console.error("Error deleting project:", error);
+    }
+  };
+
   if (loading) return <div className={`p-8 text-center transition-colors ${theme === 'dark' ? 'text-white bg-slate-950' : 'text-slate-900 bg-slate-50'}`}>Loading...</div>;
 
   if (!isAdmin) {
@@ -366,6 +476,13 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
               <Newspaper className="w-5 h-5" />
               <span className="font-medium">News & Feed</span>
             </button>
+            <button 
+              onClick={() => setActiveTab('projects')}
+              className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === 'projects' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600'}`}
+            >
+              <Briefcase className="w-5 h-5" />
+              <span className="font-medium">Projects</span>
+            </button>
           </div>
         </div>
         
@@ -383,7 +500,9 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <User className="w-4 h-4 text-blue-400" />
-                    <span className={`font-medium text-sm truncate transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Visitor {chat.userId.substring(0, 6)}...</span>
+                    <span className={`font-medium text-sm truncate transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                      {chat.visitorInfo?.name || `Visitor ${chat.userId.substring(0, 6)}...`}
+                    </span>
                   </div>
                   <div className={`flex items-center gap-2 text-xs transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
                     <Clock className="w-3 h-3" />
@@ -406,6 +525,14 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
             <>
               <div className={`p-6 border-b transition-colors ${theme === 'dark' ? 'border-white/10 bg-slate-900/50' : 'border-slate-200 bg-white shadow-sm'}`}>
                 <h3 className={`font-semibold text-lg transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Chat Session Details</h3>
+                {selectedChat.visitorInfo && (
+                  <div className="my-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <h4 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">Visitor Information</h4>
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}><strong>Name:</strong> {selectedChat.visitorInfo.name}</p>
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}><strong>Phone:</strong> {selectedChat.visitorInfo.phone}</p>
+                    {selectedChat.visitorInfo.email && <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}><strong>Email:</strong> {selectedChat.visitorInfo.email}</p>}
+                  </div>
+                )}
                 <p className={`text-sm transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Started: {selectedChat.createdAt?.toDate().toLocaleString()}</p>
                 <p className={`text-sm transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Expires: {selectedChat.expiresAt?.toDate().toLocaleString()}</p>
               </div>
@@ -592,12 +719,152 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
           </div>
         )}
 
+        {activeTab === 'projects' && (
+          <div className="flex-1 overflow-y-auto p-6 md:p-10">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center gap-3 mb-8">
+                <Briefcase className="w-8 h-8 text-blue-500" />
+                <h2 className={`text-3xl font-bold tracking-tight transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Manage Projects</h2>
+              </div>
+
+              <div className={`p-6 md:p-8 rounded-3xl border mb-12 transition-colors ${theme === 'dark' ? 'bg-slate-900/50 border-white/10' : 'bg-white border-slate-200 shadow-xl'}`}>
+                <h3 className={`text-xl font-bold mb-6 flex items-center gap-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {editingProjectId ? <Pencil className="w-5 h-5 text-amber-500" /> : <Plus className="w-5 h-5 text-blue-500" />}
+                  {editingProjectId ? 'Edit Project' : 'Add New Project'}
+                </h3>
+                <form onSubmit={handleAddProject} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Project Name *</label>
+                      <input 
+                        type="text" 
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                        placeholder="e.g. Team-lab Project"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Role *</label>
+                      <input 
+                        type="text" 
+                        value={projectRole}
+                        onChange={(e) => setProjectRole(e.target.value)}
+                        className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-all ${theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                        placeholder="e.g. MEP Lead & Senior Projects Manager"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Key Duties * (One per line)</label>
+                    <textarea 
+                      value={projectDuties}
+                      onChange={(e) => setProjectDuties(e.target.value)}
+                      className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] transition-all ${theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                      placeholder="Lead end-to-end project management...&#10;Managed Design and build project scope..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>The Challenge (Optional)</label>
+                    <textarea 
+                      value={projectChallenges}
+                      onChange={(e) => setProjectChallenges(e.target.value)}
+                      className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] transition-all ${theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                      placeholder="Describe the specific hurdles faced..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>The Solution (Optional)</label>
+                    <textarea 
+                      value={projectSolutions}
+                      onChange={(e) => setProjectSolutions(e.target.value)}
+                      className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] transition-all ${theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                      placeholder="Explain the strategies and actions taken..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Key Achievements (Optional)</label>
+                    <textarea 
+                      value={projectAchievements}
+                      onChange={(e) => setProjectAchievements(e.target.value)}
+                      className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] transition-all ${theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                      placeholder="Highlight successful outcomes and metrics..."
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      type="submit"
+                      disabled={isSubmittingProject}
+                      className={`${editingProjectId ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'} text-white px-6 py-2 rounded-lg font-medium transition-all disabled:opacity-50 shadow-lg shadow-blue-600/20`}
+                    >
+                      {isSubmittingProject ? (editingProjectId ? 'Saving...' : 'Adding...') : (editingProjectId ? 'Save Changes' : 'Add Project')}
+                    </button>
+                    {editingProjectId && (
+                      <button 
+                        type="button"
+                        onClick={cancelEditProject}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                      >
+                        <X className="w-4 h-4" /> Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <h3 className={`text-lg font-semibold mb-4 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Existing Projects</h3>
+              <div className="space-y-4">
+                {projects.length === 0 ? (
+                  <p className="text-slate-500">No projects added yet.</p>
+                ) : (
+                  projects.map(project => (
+                    <div key={project.id} className={`p-6 rounded-2xl border flex justify-between items-start gap-4 transition-all ${editingProjectId === project.id ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200 shadow-md'}`}>
+                      <div>
+                        <h4 className={`font-bold text-lg mb-1 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.name}</h4>
+                        <p className={`text-sm font-medium mb-3 transition-colors ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>{project.role}</p>
+                        <p className={`text-sm line-clamp-2 transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {project.duties?.join(' • ')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button 
+                          onClick={() => handleEditProject(project)}
+                          className={`p-2 rounded-lg transition-colors ${editingProjectId === project.id ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-amber-400 hover:bg-amber-400/10'}`}
+                          title="Edit Project"
+                        >
+                          <Pencil className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => setDeletingProjectId(project.id)}
+                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                          title="Delete Project"
+                          disabled={editingProjectId === project.id}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Delete Confirmation Modal */}
-        {deletingNewsId && (
+        {(deletingNewsId || deletingProjectId) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className={`border p-6 rounded-2xl max-w-sm w-full shadow-2xl transition-colors ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
               <h3 className={`text-xl font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                Delete News Item?
+                Delete {deletingNewsId ? 'News Item' : 'Project'}?
               </h3>
               <p className={`mb-6 transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
                 This action cannot be undone. Are you sure you want to permanently delete this item?
@@ -606,13 +873,14 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
                 <button 
                   onClick={() => {
                     setDeletingNewsId(null);
+                    setDeletingProjectId(null);
                   }}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={confirmDeleteNews}
+                  onClick={deletingNewsId ? confirmDeleteNews : confirmDeleteProject}
                   className="px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
                 >
                   Delete

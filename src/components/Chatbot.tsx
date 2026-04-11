@@ -6,12 +6,12 @@ import Markdown from 'react-markdown';
 import { AudioRecorder, AudioPlayer } from '../lib/audioUtils';
 import { auth, db } from '../firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, setDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, arrayUnion, Timestamp, getDoc } from 'firebase/firestore';
 
 // Initialize Gemini inside components to capture dynamic API keys
 // const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const SYSTEM_INSTRUCTION = `You are an AI assistant answering on behalf of Ahmed Abdelrazek Abdelhakim, an MEP Director & Senior Project Management Professional (PMP).
+const SYSTEM_INSTRUCTION = `You are an AI assistant answering on behalf of Ahmed Abdulrazek Abdelhakim, an MEP Director & Senior Project Management Professional (PMP).
 Your primary directive is to answer questions SPECIFICALLY, CORRECTLY, and ON THE SPOT. 
 Do not use filler words. Be direct, factual, and concise. Do not hallucinate information.
 You can speak and understand both English and Egyptian Arabic. Respond in the language the user speaks to you. Maintain a serious, authoritative, and highly professional tone.
@@ -46,6 +46,8 @@ If asked a question, provide the exact answer immediately without conversational
 
 export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasSubmittedInfo, setHasSubmittedInfo] = useState(false);
+  const [visitorInfo, setVisitorInfo] = useState({ name: '', email: '', phone: '' });
   const [messages, setMessages] = useState<{role: 'user'|'model', text: string}[]>([
     { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services." }
   ]);
@@ -71,6 +73,55 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
   }, [isOpen]);
 
   useEffect(() => {
+    const loadExistingSession = async () => {
+      const savedSessionId = localStorage.getItem('chatSessionId');
+      if (savedSessionId) {
+        try {
+          // Ensure anonymous auth is initialized before fetching
+          await signInAnonymously(auth);
+          const docRef = doc(db, 'chatSessions', savedSessionId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setSessionId(savedSessionId);
+            if (data.messages && data.messages.length > 0) {
+              setMessages(data.messages);
+            }
+            if (data.visitorInfo) {
+              setVisitorInfo(data.visitorInfo);
+            }
+            setHasSubmittedInfo(true);
+            
+            // Initialize the AI chat with the history
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            chatRef.current = ai.chats.create({
+              model: 'gemini-3-flash-preview',
+              config: {
+                systemInstruction: SYSTEM_INSTRUCTION,
+              }
+            });
+          } else {
+            // Session was pruned or doesn't exist
+            localStorage.removeItem('chatSessionId');
+          }
+        } catch (e: any) {
+          if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
+            // The user no longer has access to this session (e.g., anonymous auth was reset)
+            // This is expected behavior, so we just clean up and don't log an error
+            localStorage.removeItem('chatSessionId');
+            setSessionId(null);
+          } else {
+            console.error("Error loading session:", e);
+          }
+        }
+      }
+    };
+    
+    loadExistingSession();
+  }, []);
+
+  const initChatSession = async () => {
     if (!chatRef.current) {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       chatRef.current = ai.chats.create({
@@ -81,49 +132,56 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
       });
     }
     
-    // Initialize anonymous auth and session
-    const initChatSession = async () => {
+    try {
+      let uid = 'local-user';
       try {
-        let uid = 'local-user';
-        try {
-          const userCredential = await signInAnonymously(auth);
-          uid = userCredential.user.uid;
-          setAuthError(null);
-          console.log("Firebase Chat Connection: SUCCESSFUL");
-        } catch (authErr: any) {
-          console.warn("Firebase Auth failed, using local session mode:", authErr);
-          if (authErr.code === 'auth/admin-restricted-operation') {
-            setAuthError("Anonymous authentication is disabled in Firebase Console. Chats will not be saved to the database.");
-          }
+        const userCredential = await signInAnonymously(auth);
+        uid = userCredential.user.uid;
+        setAuthError(null);
+        console.log("Firebase Chat Connection: SUCCESSFUL");
+      } catch (authErr: any) {
+        console.warn("Firebase Auth failed, using local session mode:", authErr);
+        if (authErr.code === 'auth/admin-restricted-operation') {
+          setAuthError("Anonymous authentication is disabled in Firebase Console. Chats will not be saved to the database.");
         }
-
-        const newSessionId = crypto.randomUUID();
-        setSessionId(newSessionId);
-        
-        const now = new Date();
-        const expiresAt = new Date();
-        expiresAt.setDate(now.getDate() + 3); // Expire in 3 days
-
-        // Only try to save to Firestore if we have a real UID (not 'local-user')
-        if (uid !== 'local-user') {
-          await setDoc(doc(db, 'chatSessions', newSessionId), {
-            userId: uid,
-            createdAt: Timestamp.fromDate(now),
-            lastUpdatedAt: Timestamp.fromDate(now),
-            expiresAt: Timestamp.fromDate(expiresAt),
-            messages: [
-              { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services.", timestamp: now.toISOString() }
-            ]
-          });
-        }
-        
-      } catch (error) {
-        console.error("Error initializing chat session:", error);
       }
-    };
 
-    initChatSession();
+      const newSessionId = crypto.randomUUID();
+      setSessionId(newSessionId);
+      localStorage.setItem('chatSessionId', newSessionId);
+      
+      const now = new Date();
+      const expiresAt = new Date();
+      expiresAt.setDate(now.getDate() + 30); // Expire in 30 days
 
+      // Only try to save to Firestore if we have a real UID (not 'local-user')
+      if (uid !== 'local-user') {
+        await setDoc(doc(db, 'chatSessions', newSessionId), {
+          userId: uid,
+          createdAt: Timestamp.fromDate(now),
+          lastUpdatedAt: Timestamp.fromDate(now),
+          expiresAt: Timestamp.fromDate(expiresAt),
+          visitorInfo: visitorInfo,
+          messages: [
+            { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services.", timestamp: now.toISOString() }
+          ]
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error initializing chat session:", error);
+    }
+  };
+
+  const handleInfoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (visitorInfo.name.trim() && visitorInfo.phone.trim()) {
+      setHasSubmittedInfo(true);
+      initChatSession();
+    }
+  };
+
+  useEffect(() => {
     return () => {
       stopVoiceSession();
     };
@@ -302,7 +360,56 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
             </div>
 
             {/* Content Area */}
-            {isVoiceMode ? (
+            {!hasSubmittedInfo ? (
+              <div className={`flex-1 flex flex-col p-6 overflow-y-auto transition-colors ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                <div className="mb-6 text-center">
+                  <h4 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Welcome!</h4>
+                  <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>Please provide your details to start the chat.</p>
+                </div>
+                <form onSubmit={handleInfoSubmit} className="space-y-4 flex-1 flex flex-col">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Name *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={visitorInfo.name}
+                      onChange={e => setVisitorInfo({...visitorInfo, name: e.target.value})}
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      placeholder="Your Name"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Phone *</label>
+                    <input 
+                      type="tel" 
+                      required
+                      value={visitorInfo.phone}
+                      onChange={e => setVisitorInfo({...visitorInfo, phone: e.target.value})}
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      placeholder="Your Phone Number"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>Email (Optional)</label>
+                    <input 
+                      type="email" 
+                      value={visitorInfo.email}
+                      onChange={e => setVisitorInfo({...visitorInfo, email: e.target.value})}
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      placeholder="Your Email"
+                    />
+                  </div>
+                  <div className="mt-auto pt-4">
+                    <button 
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
+                    >
+                      Start Chat
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : isVoiceMode ? (
               <div className={`flex-1 flex flex-col items-center justify-center p-8 transition-colors ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}>
                 <motion.div 
                   animate={isListening ? { scale: [1, 1.2, 1] } : {}}

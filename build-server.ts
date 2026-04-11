@@ -1,6 +1,6 @@
 import * as esbuild from 'esbuild';
 
-esbuild.build({
+await esbuild.build({
   entryPoints: ['server.ts'],
   bundle: true,
   platform: 'node',

@@ -1,14 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import ReactMarkdown from 'react-markdown';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 import { 
   Briefcase, 
   LineChart, 
@@ -39,12 +36,13 @@ import {
   Clock,
   Sun,
   Moon,
-  Leaf
+  Leaf,
+  Pencil
 } from 'lucide-react';
 import Chatbot from './components/Chatbot';
 import AdminDashboard from './components/AdminDashboard';
 import { doc, getDoc, setDoc, updateDoc, increment, collection, addDoc, query, orderBy, onSnapshot, where, getDocs, deleteDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 
 type Theme = 'light' | 'dark';
 
@@ -150,12 +148,26 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [expandedProjectIndex, setExpandedProjectIndex] = useState<number | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [newsItems, setNewsItems] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
+
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (user && user.email?.toLowerCase() === 'tamrazek.aaa@gmail.com') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribeAuth();
+  }, []);
 
   useEffect(() => {
     // Fetch News Feed
@@ -165,6 +177,147 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     });
     return () => unsubscribeNews();
   }, []);
+
+  const isSeeding = useRef(false);
+
+  useEffect(() => {
+    // Fetch Projects
+    const qProjects = query(collection(db, 'projects'), orderBy('order', 'asc'));
+    const unsubscribeProjects = onSnapshot(qProjects, async (snapshot) => {
+      const currentProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      
+      if ((snapshot.empty || currentProjects.length < 8) && !isSeeding.current) {
+        // Seed initial projects if empty or incomplete
+        const initialProjects = [
+          {
+            name: "Team-lab Project",
+            role: "MEP Lead & Senior Projects Manager",
+            duties: [
+              "Lead end-to-end project management for high-profile cultural and digital art projects.",
+              "Managed Design and build project scope."
+            ],
+            challenges: "Integrating complex digital art installations with stringent MEP requirements without compromising aesthetic vision.",
+            solutions: "Implemented advanced 3D BIM coordination and custom HVAC routing to conceal services while maintaining optimal environmental conditions for the equipment.",
+            achievements: "Delivered the project on time with zero clashes, achieving a seamless integration of technology and architecture.",
+            order: 1
+          },
+          {
+            name: "Saudi Cargo Facilities",
+            role: "MEP Project Manager",
+            duties: [
+              "Managed MEP scope, coordination, and delivery.",
+              "Developed and controlled project schedules, budgets, and risk registers.",
+              "Coordinated with architects, consultants, and international stakeholders."
+            ],
+            challenges: "Managing continuous operations during the upgrade of critical MEP infrastructure in a high-security cargo environment.",
+            solutions: "Developed a phased execution strategy with temporary bypass systems to ensure zero downtime for cargo operations.",
+            achievements: "Successfully upgraded the facility's capacity by 40% while maintaining 100% operational continuity.",
+            order: 2
+          },
+          {
+            name: "Oreka Entertainment & Attraction",
+            role: "MEP Project Manager",
+            duties: [
+              "Led MEP project management and execution.",
+              "Ensured seamless integration with architectural and AVL systems.",
+              "Managed procurement strategies, contracts, variations, and claims."
+            ],
+            challenges: "Coordinating highly specialized Audio, Video, and Lighting (AVL) systems with standard MEP services in a confined space.",
+            solutions: "Led weekly multi-disciplinary workshops and utilized clash detection software to resolve spatial conflicts early in the design phase.",
+            achievements: "Reduced installation time by 15% and eliminated rework costs related to AVL/MEP clashes.",
+            order: 3
+          },
+          {
+            name: "Red Sea Film Foundation",
+            role: "PMC Services Lead",
+            duties: [
+              "Provided Project Management Consultancy (PMC) services.",
+              "Oversaw consultants and contractors.",
+              "Ensured strict compliance with project objectives and timelines."
+            ],
+            challenges: "Ensuring strict adherence to international acoustic and lighting standards for film screening environments.",
+            solutions: "Introduced specialized acoustic dampening materials and isolated HVAC systems to meet NC-20 noise criteria.",
+            achievements: "Achieved world-class acoustic performance, receiving high praise from international film industry stakeholders.",
+            order: 4
+          },
+          {
+            name: "Jeddah Islamic Biennale",
+            role: "PMO Service",
+            duties: [
+              "Provided PMO services for the project.",
+              "Ensured on-time project delivery through proactive risk and change management."
+            ],
+            challenges: "Aggressive timeline to deliver the project before the scheduled international event opening.",
+            solutions: "Established a robust PMO framework with daily tracking, fast-track procurement, and parallel execution of critical path activities.",
+            achievements: "Completed all MEP milestones 2 weeks ahead of schedule, ensuring a successful and timely event launch.",
+            order: 5
+          },
+          {
+            name: "AlFadhili Field Housing (ARAMCO JV)",
+            role: "MEP Manager",
+            duties: [
+              "Managed full MEP project lifecycle for large-scale residential and infrastructure facilities.",
+              "Ensured compliance with ARAMCO standards, QA/QC, and HSE.",
+              "Led commissioning, testing, handover, and transition to O&M phase."
+            ],
+            challenges: "Meeting stringent ARAMCO engineering standards and HSE requirements in a remote, harsh desert environment.",
+            solutions: "Implemented rigorous QA/QC protocols, pre-fabrication strategies, and comprehensive HSE training programs for all site personnel.",
+            achievements: "Achieved 2 million safe man-hours and successfully handed over the project with zero major non-conformances.",
+            order: 6
+          },
+          {
+            name: "EMAAR Projects, KAEC",
+            role: "MEP Manager / Consultant",
+            duties: [
+              "Provided project management and supervision consultancy.",
+              "Led value engineering initiatives to optimize cost without compromising quality.",
+              "Coordinated with authorities to ensure life safety and regulatory compliance."
+            ],
+            challenges: "Optimizing project costs in a fluctuating market without compromising the high-end quality expected of EMAAR developments.",
+            solutions: "Conducted extensive value engineering workshops, identifying alternative materials and energy-efficient system designs.",
+            achievements: "Realized a 12% cost saving on the overall MEP budget while improving the building's energy efficiency rating.",
+            order: 7
+          },
+          {
+            name: "Alandalus Property Developments",
+            role: "MEP Coordinator",
+            duties: [
+              "Managed contractor design coordination in line with IHG operational standards.",
+              "Prepared RFPs, technical evaluations, and procurement recommendations.",
+              "Controlled cost, schedule, and quality throughout execution stages."
+            ],
+            challenges: "Aligning local contractor capabilities with stringent IHG (InterContinental Hotels Group) global operational standards.",
+            solutions: "Facilitated intensive design coordination meetings and provided direct mentorship to contractors on IHG specifications.",
+            achievements: "Successfully bridged the gap between local practices and international standards, resulting in a smooth handover to the hotel operator.",
+            order: 8
+          }
+        ];
+        
+        // Only seed if we are admin, to avoid permission errors for regular users
+        if (isAdmin) {
+          isSeeding.current = true;
+          try {
+            // First delete existing to avoid duplicates
+            for (const p of currentProjects) {
+              await deleteDoc(doc(db, 'projects', p.id));
+            }
+            // Then add all 8
+            for (const project of initialProjects) {
+              await addDoc(collection(db, 'projects'), project);
+            }
+          } finally {
+            isSeeding.current = false;
+          }
+        } else {
+          // If not admin, just show the hardcoded ones for now until admin logs in and seeds
+          setProjects(initialProjects);
+        }
+      } else {
+        setProjects(currentProjects);
+      }
+    });
+    return () => unsubscribeProjects();
+  }, [isAdmin]);
 
   useEffect(() => {
     const trackVisitor = async () => {
@@ -191,6 +344,17 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     };
 
     trackVisitor();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user && user.email?.toLowerCase() === 'tamrazek.aaa@gmail.com') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const services = [
@@ -228,79 +392,6 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       icon: <Leaf className="w-6 h-6 text-emerald-400" />,
       title: "Sustainability",
       description: "LEED Green Associate certified. Implementing energy-efficient solutions, green building standards, and sustainable MEP practices."
-    }
-  ];
-
-  const projects = [
-    {
-      name: "Team-lab Project",
-      role: "MEP Lead & Senior Projects Manager",
-      duties: [
-        "Lead end-to-end project management for high-profile cultural and digital art projects.",
-        "Managed Design and build project scope."
-      ]
-    },
-    {
-      name: "Saudi Cargo Facilities",
-      role: "MEP Project Manager",
-      duties: [
-        "Managed MEP scope, coordination, and delivery.",
-        "Developed and controlled project schedules, budgets, and risk registers.",
-        "Coordinated with architects, consultants, and international stakeholders."
-      ]
-    },
-    {
-      name: "Oreka Entertainment & Attraction",
-      role: "MEP Project Manager",
-      duties: [
-        "Led MEP project management and execution.",
-        "Ensured seamless integration with architectural and AVL systems.",
-        "Managed procurement strategies, contracts, variations, and claims."
-      ]
-    },
-    {
-      name: "Red Sea Film Foundation",
-      role: "PMC Services Lead",
-      duties: [
-        "Provided Project Management Consultancy (PMC) services.",
-        "Oversaw consultants and contractors.",
-        "Ensured strict compliance with project objectives and timelines."
-      ]
-    },
-    {
-      name: "Jeddah Islamic Biennale",
-      role: "PMO Service",
-      duties: [
-        "Provided PMO services for the project.",
-        "Ensured on-time project delivery through proactive risk and change management."
-      ]
-    },
-    {
-      name: "AlFadhili Field Housing (ARAMCO JV)",
-      role: "MEP Manager",
-      duties: [
-        "Managed full MEP project lifecycle for large-scale residential and infrastructure facilities.",
-        "Ensured compliance with ARAMCO standards, QA/QC, and HSE.",
-        "Led commissioning, testing, handover, and transition to O&M phase."
-      ]
-    },
-    {
-      name: "EMAAR Projects, KAEC",
-      role: "MEP Manager / Consultant",
-      duties: [
-        "Provided project management and supervision consultancy.",
-        "Led value engineering initiatives to optimize cost without compromising quality.",
-        "Coordinated with authorities to ensure life safety and regulatory compliance."
-      ]
-    },
-    {
-      name: "Alandalus Property Developments",
-      role: "MEP Coordinator",
-      duties: [
-        "Managed contractor design coordination in line with IHG operational standards.",
-        "Prepared RFPs, technical evaluations, and procurement recommendations.",
-        "Controlled cost, schedule, and quality throughout execution stages."
-      ]
     }
   ];
 
@@ -348,6 +439,14 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
 
   const insights = [
     {
+      type: 'Presentation',
+      title: 'Architecting Value: A Systems Engineering Guide to the ISO 55000 Asset Management Series',
+      description: 'A master blueprint for transforming organizational objectives into realized asset value, exploring the ISO 55000 ecosystem and the foundation of Asset Management (VALA).',
+      icon: <MonitorPlay className="w-4 h-4" />,
+      link: '/Architecting_Asset_Value.pdf',
+      date: 'April 2026'
+    },
+    {
       type: 'Article',
       title: 'Optimizing Integration of Asset Management & Maintenance Knowledge across Project Phases',
       description: 'Exploring the significance of incorporating asset management principles throughout the project lifecycle, from initiation to closure, to achieve organizational objectives efficiently and sustainably.',
@@ -376,12 +475,13 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
   return (
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-950 text-slate-50' : 'bg-slate-50 text-slate-900'} selection:bg-blue-500/30 font-sans overflow-hidden`}>
       {/* Animated Background - Using Logo Colors (Blue & Bronze/Amber) */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className={`absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full ${theme === 'dark' ? 'bg-blue-700/20' : 'bg-blue-400/10'} blur-[120px] mix-blend-screen`} />
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full ${theme === 'dark' ? 'bg-amber-600/15' : 'bg-amber-400/10'} blur-[120px] mix-blend-screen`} />
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full ${theme === 'dark' ? 'bg-blue-700/20' : 'bg-blue-400/20'} blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-blob`} />
+        <div className={`absolute top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full ${theme === 'dark' ? 'bg-amber-600/15' : 'bg-amber-400/20'} blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-blob [animation-delay:2s]`} />
+        <div className={`absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full ${theme === 'dark' ? 'bg-emerald-600/15' : 'bg-emerald-400/20'} blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-blob [animation-delay:4s]`} />
         <motion.div 
           style={{ y }}
-          className={`absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] ${theme === 'dark' ? 'opacity-20' : 'opacity-10'} mix-blend-overlay`}
+          className={`absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] ${theme === 'dark' ? 'opacity-20' : 'opacity-[0.05]'} mix-blend-overlay`}
         />
       </div>
 
@@ -391,7 +491,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
           <a href="#" className="flex items-center gap-3">
             <img 
               src="/Logo.jpg" 
-              alt="Ahmed Abdelrazek Logo" 
+              alt="Ahmed Abdulrazek Logo" 
               className="h-12 md:h-16 w-auto object-contain"
             />
           </a>
@@ -433,7 +533,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             >
               <img 
                 src="/Photo.jpg" 
-                alt="Ahmed Abdelrazek" 
+                alt="Ahmed Abdulrazek" 
                 className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 mx-auto object-cover shadow-2xl transition-colors ${theme === 'dark' ? 'border-slate-800' : 'border-white'}`}
               />
             </motion.div>
@@ -454,7 +554,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
               transition={{ duration: 0.5, delay: 0.2 }}
               className="text-5xl md:text-7xl font-bold tracking-tight mb-4 leading-tight"
             >
-              Ahmed Abdelrazek <br/>
+              Ahmed Abdulrazek <br/>
               <span className="text-3xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-amber-400">
                 MEP Director & Project Management Expert
               </span>
@@ -494,8 +594,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                 <ChevronRight className="w-4 h-4" />
               </a>
               <a 
-                href="/Ahmed_Abdelrazek_CV.pdf"
-                download="Ahmed_Abdelrazek_CV.pdf"
+                href="/Ahmed_Abdulrazek_CV.pdf"
+                download="Ahmed_Abdulrazek_CV.pdf"
                 className="w-full sm:w-auto px-8 py-4 rounded-full bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
               >
                 <Download className="w-4 h-4" />
@@ -505,7 +605,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                 href="https://www.linkedin.com/in/ahmed-abdulrazek-82b5a9a1" 
                 target="_blank" 
                 rel="noreferrer"
-                className="w-full sm:w-auto px-8 py-4 rounded-full bg-white/5 text-white font-semibold hover:bg-blue-600/80 transition-colors border border-white/10 flex items-center justify-center gap-2"
+                className={`w-full sm:w-auto px-8 py-4 rounded-full font-semibold transition-colors border flex items-center justify-center gap-2 ${theme === 'dark' ? 'bg-white/5 text-white border-white/10 hover:bg-blue-600/80' : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-700 shadow-sm'}`}
               >
                 <Linkedin className="w-4 h-4" />
                 LinkedIn
@@ -514,7 +614,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                 href="https://youtube.com/@fekra-aaa?si=oaijW_pBfQ_EhVEd" 
                 target="_blank" 
                 rel="noreferrer"
-                className="w-full sm:w-auto px-8 py-4 rounded-full bg-white/5 text-white font-semibold hover:bg-red-600/80 transition-colors border border-white/10 flex items-center justify-center gap-2"
+                className={`w-full sm:w-auto px-8 py-4 rounded-full font-semibold transition-colors border flex items-center justify-center gap-2 ${theme === 'dark' ? 'bg-white/5 text-white border-white/10 hover:bg-red-600/80' : 'bg-white text-slate-700 border-slate-200 hover:bg-red-50 hover:text-red-700 shadow-sm'}`}
               >
                 <Youtube className="w-4 h-4" />
                 YouTube
@@ -577,7 +677,22 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                   className={`p-8 rounded-3xl border transition-all duration-300 flex flex-col h-full ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-xl'}`}
                 >
                   <div className="mb-6">
-                    <h3 className={`text-2xl font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.name}</h3>
+                    <div className="flex justify-between items-start gap-4">
+                      <h3 className={`text-2xl font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.name}</h3>
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            sessionStorage.setItem('adminTab', 'projects');
+                            sessionStorage.setItem('editProjectId', project.id);
+                            window.location.hash = '#admin';
+                          }}
+                          className={`p-2 rounded-lg transition-colors shrink-0 ${theme === 'dark' ? 'bg-white/10 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400' : 'bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-600'}`}
+                          title="Edit Project"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-sm font-medium border border-blue-500/20">
                       <Briefcase className="w-4 h-4" />
                       {project.role}
@@ -659,10 +774,10 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                             ul: ({node, ...props}) => <ul className="mb-6 space-y-3 list-none" {...props} />,
                             ol: ({node, ...props}) => <ol className="mb-6 space-y-3 list-decimal pl-5" {...props} />,
                             li: ({node, ...props}) => <li className="leading-relaxed flex items-start gap-3" {...props} />,
-                            h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white mb-4 mt-8" {...props} />,
-                            h2: ({node, ...props}) => <h2 className="text-xl font-bold text-white mb-4 mt-8" {...props} />,
-                            h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white mb-3 mt-6" {...props} />,
-                            strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                            h1: ({node, ...props}) => <h1 className={`text-2xl font-bold mb-4 mt-8 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`} {...props} />,
+                            h2: ({node, ...props}) => <h2 className={`text-xl font-bold mb-4 mt-8 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`} {...props} />,
+                            h3: ({node, ...props}) => <h3 className={`text-lg font-bold mb-3 mt-6 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`} {...props} />,
+                            strong: ({node, ...props}) => <strong className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`} {...props} />,
                             a: ({node, ...props}) => <a className="text-blue-400 hover:text-blue-300 underline underline-offset-4" target="_blank" rel="noreferrer" {...props} />,
                             blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic my-6 text-slate-400" {...props} />
                           }}
@@ -677,7 +792,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                             href={item.link}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-3 text-base font-bold text-white hover:text-blue-400 transition-all group/link"
+                            className={`inline-flex items-center gap-3 text-base font-bold transition-all group/link ${theme === 'dark' ? 'text-white hover:text-blue-400' : 'text-slate-900 hover:text-blue-600'}`}
                           >
                             <span className="relative">
                               Read Full Article
@@ -904,7 +1019,24 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
 
       {/* Footer */}
       <footer className={`py-8 px-6 border-t text-center text-sm relative z-10 flex flex-col items-center gap-4 transition-colors ${theme === 'dark' ? 'border-white/5 text-slate-500' : 'border-slate-200 text-slate-500 bg-white'}`}>
-        <p>© {new Date().getFullYear()} Ahmed Abdelrazek. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Ahmed Abdulrazek. All rights reserved.</p>
+        <div className="flex items-center gap-4">
+          {visitorCount !== null && (
+            <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-colors ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+              <Eye className="w-3.5 h-3.5 text-slate-400" />
+              <span>{visitorCount.toLocaleString()} Visitors</span>
+            </div>
+          )}
+          {isAdmin && (
+            <a 
+              href="#admin"
+              className={`flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border transition-colors cursor-pointer font-medium ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-sm'}`}
+              title="Admin Access"
+            >
+              Admin Dashboard
+            </a>
+          )}
+        </div>
       </footer>
 
       <Chatbot theme={theme} />
