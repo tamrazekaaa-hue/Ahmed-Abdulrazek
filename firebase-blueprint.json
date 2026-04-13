@@ -107,9 +107,24 @@
         "order": { "type": "number", "description": "Used for sorting projects" }
       },
       "required": ["name", "role", "duties"]
+    },
+    "Stat": {
+      "title": "Stat",
+      "description": "A generic statistic counter.",
+      "type": "object",
+      "properties": {
+        "count": { "type": "number" }
+      },
+      "required": ["count"]
     }
   },
   "firestore": {
+    "/stats/{statId}": {
+      "schema": {
+        "$ref": "#/entities/Stat"
+      },
+      "description": "Stores application statistics like CV downloads."
+    },
     "/news_feed/{newsId}": {
       "schema": {
         "$ref": "#/entities/NewsItem"

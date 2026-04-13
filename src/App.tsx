@@ -151,6 +151,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
   const [expandedProjectIndex, setExpandedProjectIndex] = useState<number | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
+  const [cvDownloadCount, setCvDownloadCount] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [newsItems, setNewsItems] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -167,6 +168,18 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       }
     });
     return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    // Fetch CV Download Count
+    const unsubscribeStats = onSnapshot(doc(db, 'stats', 'cv_downloads'), (docSnap) => {
+      if (docSnap.exists()) {
+        setCvDownloadCount(docSnap.data().count);
+      } else {
+        setCvDownloadCount(0);
+      }
+    });
+    return () => unsubscribeStats();
   }, []);
 
   useEffect(() => {
@@ -472,6 +485,20 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     }
   ];
 
+  const handleDownloadCV = async () => {
+    try {
+      const statRef = doc(db, 'stats', 'cv_downloads');
+      const statDoc = await getDoc(statRef);
+      if (statDoc.exists()) {
+        await updateDoc(statRef, { count: increment(1) });
+      } else {
+        await setDoc(statRef, { count: 1 });
+      }
+    } catch (error) {
+      console.error("Error updating CV download count:", error);
+    }
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-950 text-slate-50' : 'bg-slate-50 text-slate-900'} selection:bg-blue-500/30 font-sans overflow-hidden`}>
       {/* Animated Background - Using Logo Colors (Blue & Bronze/Amber) */}
@@ -593,14 +620,22 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                 Explore My Services
                 <ChevronRight className="w-4 h-4" />
               </a>
-              <a 
-                href="/Ahmed_Abdulrazek_CV.pdf"
-                download="Ahmed_Abdulrazek_CV.pdf"
-                className="w-full sm:w-auto px-8 py-4 rounded-full bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
-              >
-                <Download className="w-4 h-4" />
-                Download CV
-              </a>
+              <div className="flex flex-col items-center gap-2 w-full sm:w-auto">
+                <a 
+                  href="/Ahmed_Abdulrazek_CV-1.pdf"
+                  download="Ahmed_Abdulrazek_CV-1.pdf"
+                  onClick={handleDownloadCV}
+                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
+                >
+                  <Download className="w-4 h-4" />
+                  Download CV
+                </a>
+                {isAdmin && cvDownloadCount !== null && (
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${theme === 'dark' ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
+                    Downloaded {cvDownloadCount} {cvDownloadCount === 1 ? 'time' : 'times'}
+                  </span>
+                )}
+              </div>
               <a 
                 href="https://www.linkedin.com/in/ahmed-abdulrazek-82b5a9a1" 
                 target="_blank" 
