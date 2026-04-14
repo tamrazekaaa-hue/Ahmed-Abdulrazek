@@ -1078,13 +1078,15 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
               <span>{visitorCount.toLocaleString()} Visitors</span>
             </div>
           )}
-          <a 
-            href="#admin"
-            className={`flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border transition-colors cursor-pointer font-medium ${isAdmin ? (theme === 'dark' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-sm') : (theme === 'dark' ? 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-800')}`}
-            title="Admin Access"
-          >
-            {isAdmin ? 'Admin Dashboard' : 'Admin Login'}
-          </a>
+          {isAdmin && (
+            <a 
+              href="#admin"
+              className={`flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border transition-colors cursor-pointer font-medium ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-sm'}`}
+              title="Admin Access"
+            >
+              Admin Dashboard
+            </a>
+          )}
         </div>
       </footer>
 
