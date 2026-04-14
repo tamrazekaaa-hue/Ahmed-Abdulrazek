@@ -50,7 +50,8 @@ service cloud.firestore {
              (!('challenges' in data) || data.challenges is string) &&
              (!('solutions' in data) || data.solutions is string) &&
              (!('achievements' in data) || data.achievements is string) &&
-             (!('order' in data) || data.order is number);
+             (!('order' in data) || data.order is number) &&
+             (!('logoUrl' in data) || data.logoUrl is string);
     }
 
     function isValidStat() {

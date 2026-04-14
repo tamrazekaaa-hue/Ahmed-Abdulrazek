@@ -199,7 +199,9 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     const unsubscribeProjects = onSnapshot(qProjects, async (snapshot) => {
       const currentProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       
-      if ((snapshot.empty || currentProjects.length < 8) && !isSeeding.current) {
+      const needsSeeding = snapshot.empty || currentProjects.length < 8 || currentProjects.some(p => p.name === "Saudi Cargo Facilities" && !p.logoUrl?.includes('saudi-cargo.jpg'));
+      
+      if (needsSeeding && !isSeeding.current) {
         // Seed initial projects if empty or incomplete
         const initialProjects = [
           {
@@ -212,7 +214,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Integrating complex digital art installations with stringent MEP requirements without compromising aesthetic vision.",
             solutions: "Implemented advanced 3D BIM coordination and custom HVAC routing to conceal services while maintaining optimal environmental conditions for the equipment.",
             achievements: "Delivered the project on time with zero clashes, achieving a seamless integration of technology and architecture.",
-            order: 1
+            order: 1,
+            logoUrl: "/team-lab.png"
           },
           {
             name: "Saudi Cargo Facilities",
@@ -225,7 +228,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Managing continuous operations during the upgrade of critical MEP infrastructure in a high-security cargo environment.",
             solutions: "Developed a phased execution strategy with temporary bypass systems to ensure zero downtime for cargo operations.",
             achievements: "Successfully upgraded the facility's capacity by 40% while maintaining 100% operational continuity.",
-            order: 2
+            order: 2,
+            logoUrl: "/saudi-cargo.jpg"
           },
           {
             name: "Oreka Entertainment & Attraction",
@@ -251,7 +255,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Ensuring strict adherence to international acoustic and lighting standards for film screening environments.",
             solutions: "Introduced specialized acoustic dampening materials and isolated HVAC systems to meet NC-20 noise criteria.",
             achievements: "Achieved world-class acoustic performance, receiving high praise from international film industry stakeholders.",
-            order: 4
+            order: 4,
+            logoUrl: "/red-sea-film.png"
           },
           {
             name: "Jeddah Islamic Biennale",
@@ -263,7 +268,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Aggressive timeline to deliver the project before the scheduled international event opening.",
             solutions: "Established a robust PMO framework with daily tracking, fast-track procurement, and parallel execution of critical path activities.",
             achievements: "Completed all MEP milestones 2 weeks ahead of schedule, ensuring a successful and timely event launch.",
-            order: 5
+            order: 5,
+            logoUrl: "https://www.google.com/s2/favicons?domain=biennale.org.sa&sz=128"
           },
           {
             name: "AlFadhili Field Housing (ARAMCO JV)",
@@ -276,7 +282,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Meeting stringent ARAMCO engineering standards and HSE requirements in a remote, harsh desert environment.",
             solutions: "Implemented rigorous QA/QC protocols, pre-fabrication strategies, and comprehensive HSE training programs for all site personnel.",
             achievements: "Achieved 2 million safe man-hours and successfully handed over the project with zero major non-conformances.",
-            order: 6
+            order: 6,
+            logoUrl: "https://www.google.com/s2/favicons?domain=aramco.com&sz=128"
           },
           {
             name: "EMAAR Projects, KAEC",
@@ -289,7 +296,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Optimizing project costs in a fluctuating market without compromising the high-end quality expected of EMAAR developments.",
             solutions: "Conducted extensive value engineering workshops, identifying alternative materials and energy-efficient system designs.",
             achievements: "Realized a 12% cost saving on the overall MEP budget while improving the building's energy efficiency rating.",
-            order: 7
+            order: 7,
+            logoUrl: "/EMAAR.png"
           },
           {
             name: "Alandalus Property Developments",
@@ -302,7 +310,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             challenges: "Aligning local contractor capabilities with stringent IHG (InterContinental Hotels Group) global operational standards.",
             solutions: "Facilitated intensive design coordination meetings and provided direct mentorship to contractors on IHG specifications.",
             achievements: "Successfully bridged the gap between local practices and international standards, resulting in a smooth handover to the hotel operator.",
-            order: 8
+            order: 8,
+            logoUrl: "https://www.google.com/s2/favicons?domain=alandalus.com.sa&sz=128"
           }
         ];
         
@@ -713,7 +722,14 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                 >
                   <div className="mb-6">
                     <div className="flex justify-between items-start gap-4">
-                      <h3 className={`text-2xl font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.name}</h3>
+                      <div className="flex items-center gap-4">
+                        {project.logoUrl && (
+                          <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border ${theme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                            <img src={project.logoUrl} alt={`${project.name} logo`} className="w-full h-full object-contain p-1" />
+                          </div>
+                        )}
+                        <h3 className={`text-2xl font-bold mb-2 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{project.name}</h3>
+                      </div>
                       {isAdmin && (
                         <button
                           onClick={() => {
@@ -1062,15 +1078,13 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
               <span>{visitorCount.toLocaleString()} Visitors</span>
             </div>
           )}
-          {isAdmin && (
-            <a 
-              href="#admin"
-              className={`flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border transition-colors cursor-pointer font-medium ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-sm'}`}
-              title="Admin Access"
-            >
-              Admin Dashboard
-            </a>
-          )}
+          <a 
+            href="#admin"
+            className={`flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border transition-colors cursor-pointer font-medium ${isAdmin ? (theme === 'dark' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-sm') : (theme === 'dark' ? 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-800')}`}
+            title="Admin Access"
+          >
+            {isAdmin ? 'Admin Dashboard' : 'Admin Login'}
+          </a>
         </div>
       </footer>
 

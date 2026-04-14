@@ -104,7 +104,8 @@
         "challenges": { "type": "string" },
         "solutions": { "type": "string" },
         "achievements": { "type": "string" },
-        "order": { "type": "number", "description": "Used for sorting projects" }
+        "order": { "type": "number", "description": "Used for sorting projects" },
+        "logoUrl": { "type": "string", "description": "URL of the project or company logo" }
       },
       "required": ["name", "role", "duties"]
     },
