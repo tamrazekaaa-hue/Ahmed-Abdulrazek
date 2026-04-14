@@ -94,13 +94,25 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
             setHasSubmittedInfo(true);
             
             // Initialize the AI chat with the history
+            if (!process.env.GEMINI_API_KEY) {
+              console.error("GEMINI_API_KEY is not configured.");
+              return;
+            }
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            
+            const history = data.messages
+              .filter((m: any) => m.role === 'user' || m.role === 'model')
+              .map((m: any) => ({
+                role: m.role,
+                parts: [{ text: m.text }]
+              }));
+
             chatRef.current = ai.chats.create({
               model: 'gemini-3-flash-preview',
               config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
-                tools: [{ googleSearch: {} }]
-              }
+                systemInstruction: SYSTEM_INSTRUCTION
+              },
+              history: history
             });
           } else {
             // Session was pruned or doesn't exist
@@ -124,12 +136,15 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
 
   const initChatSession = async () => {
     if (!chatRef.current) {
+      if (!process.env.GEMINI_API_KEY) {
+        console.error("GEMINI_API_KEY is not configured.");
+        return;
+      }
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       chatRef.current = ai.chats.create({
         model: 'gemini-3-flash-preview',
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          tools: [{ googleSearch: {} }]
+          systemInstruction: SYSTEM_INSTRUCTION
         }
       });
     }
@@ -207,6 +222,9 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
         }
       });
 
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured.");
+      }
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const sessionPromise = ai.live.connect({
         model: "gemini-3.1-flash-live-preview",
@@ -234,8 +252,7 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } }
           },
-          systemInstruction: SYSTEM_INSTRUCTION,
-          tools: [{ googleSearch: {} }]
+          systemInstruction: SYSTEM_INSTRUCTION
         }
       });
 
@@ -292,13 +309,15 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
     }
 
     try {
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured in the environment.");
+      }
       if (!chatRef.current) {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         chatRef.current = ai.chats.create({
           model: 'gemini-3-flash-preview',
           config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            tools: [{ googleSearch: {} }]
+            systemInstruction: SYSTEM_INSTRUCTION
           }
         });
       }
@@ -320,9 +339,9 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
       } else {
         throw new Error("No text in response");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "I'm sorry, I encountered an error connecting to my knowledge base. Please try again later." }]);
+      setMessages(prev => [...prev, { role: 'model', text: `I'm sorry, I encountered an error: ${error?.message || 'Unknown error'}. Please try again later.` }]);
     } finally {
       setIsLoading(false);
     }
