@@ -99,6 +99,7 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
               model: 'gemini-3-flash-preview',
               config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
+                tools: [{ googleSearch: {} }]
               }
             });
           } else {
@@ -128,6 +129,7 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
         model: 'gemini-3-flash-preview',
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
+          tools: [{ googleSearch: {} }]
         }
       });
     }
@@ -233,6 +235,7 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } }
           },
           systemInstruction: SYSTEM_INSTRUCTION,
+          tools: [{ googleSearch: {} }]
         }
       });
 
@@ -295,6 +298,7 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
           model: 'gemini-3-flash-preview',
           config: {
             systemInstruction: SYSTEM_INSTRUCTION,
+            tools: [{ googleSearch: {} }]
           }
         });
       }
@@ -337,8 +341,8 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
             {/* Header */}
             <div className={`p-4 border-b flex items-center justify-between transition-colors ${theme === 'dark' ? 'bg-slate-800 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4 text-white" />
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-500 shadow-sm flex items-center justify-center bg-slate-200">
+                  <img src="/Photo.jpg" alt="Ahmed" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className={`font-semibold text-sm transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Ahmed</h3>
@@ -485,12 +489,43 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
         )}
       </AnimatePresence>
 
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 z-50"
-      >
-        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
-      </button>
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+        {!isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 2, duration: 0.5 }}
+            className={`pointer-events-auto text-sm font-medium px-4 py-2 rounded-2xl shadow-2xl border flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+            </span>
+            Ask me anything!
+          </motion.div>
+        )}
+        <div className="relative pointer-events-auto">
+          {!isOpen && (
+            <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-30 duration-1000"></div>
+          )}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            animate={!isOpen ? { y: [0, -10, 0] } : {}}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            onClick={() => setIsOpen(!isOpen)}
+            className="relative w-16 h-16 bg-gradient-to-tr from-blue-700 to-blue-500 text-white rounded-full shadow-[0_0_30px_rgba(37,99,235,0.5)] flex items-center justify-center z-50 p-0.5"
+          >
+            {isOpen ? (
+              <X className="w-7 h-7" />
+            ) : (
+              <div className="w-full h-full rounded-full overflow-hidden border-2 border-white/50 relative bg-slate-200">
+                <img src="/Photo.jpg" alt="Ahmed" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </motion.button>
+        </div>
+      </div>
     </>
   );
 }
