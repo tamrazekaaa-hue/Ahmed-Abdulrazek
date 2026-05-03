@@ -4,7 +4,7 @@ import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { AudioRecorder, AudioPlayer } from '../lib/audioUtils';
-import { auth, db } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { doc, setDoc, updateDoc, arrayUnion, Timestamp, getDoc } from 'firebase/firestore';
 
@@ -125,7 +125,7 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
             localStorage.removeItem('chatSessionId');
             setSessionId(null);
           } else {
-            console.error("Error loading session:", e);
+            handleFirestoreError(e, OperationType.GET, `chatSessions/${sessionId}`);
           }
         }
       }
@@ -173,16 +173,21 @@ export default function Chatbot({ theme }: { theme: 'light' | 'dark' }) {
 
       // Only try to save to Firestore if we have a real UID (not 'local-user')
       if (uid !== 'local-user') {
-        await setDoc(doc(db, 'chatSessions', newSessionId), {
-          userId: uid,
-          createdAt: Timestamp.fromDate(now),
-          lastUpdatedAt: Timestamp.fromDate(now),
-          expiresAt: Timestamp.fromDate(expiresAt),
-          visitorInfo: visitorInfo,
-          messages: [
-            { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services.", timestamp: now.toISOString() }
-          ]
-        });
+        const path = `chatSessions/${newSessionId}`;
+        try {
+          await setDoc(doc(db, 'chatSessions', newSessionId), {
+            userId: uid,
+            createdAt: Timestamp.fromDate(now),
+            lastUpdatedAt: Timestamp.fromDate(now),
+            expiresAt: Timestamp.fromDate(expiresAt),
+            visitorInfo: visitorInfo,
+            messages: [
+              { role: 'model', text: "Hello! Ask me any specific questions about Ahmed's experience, projects, or services.", timestamp: now.toISOString() }
+            ]
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, path);
+        }
       }
       
     } catch (error) {

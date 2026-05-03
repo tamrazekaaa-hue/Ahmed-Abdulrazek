@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, Timestamp, doc, getDoc, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { MessageCircle, LogOut, Clock, User, Eye, Newspaper, Plus, Trash2, Mail, Home, Pencil, X, Sun, Moon, Briefcase } from 'lucide-react';
 
@@ -81,6 +81,7 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
     fetchVisitorCount();
 
     // Fetch Chats
+    const pathChats = 'chatSessions';
     const qChats = query(collection(db, 'chatSessions'), orderBy('lastUpdatedAt', 'desc'));
     const unsubscribeChats = onSnapshot(qChats, (snapshot) => {
       const chatData = snapshot.docs.map(doc => ({
@@ -102,18 +103,26 @@ export default function AdminDashboard({ theme, toggleTheme }: { theme: 'light' 
       });
       
       setChats(validChats);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, pathChats);
     });
 
     // Fetch News
+    const pathNews = 'news_feed';
     const qNews = query(collection(db, 'news_feed'), orderBy('createdAt', 'desc'));
     const unsubscribeNews = onSnapshot(qNews, (snapshot) => {
       setNews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, pathNews);
     });
 
     // Fetch Projects
+    const pathProjects = 'projects';
     const qProjects = query(collection(db, 'projects'), orderBy('order', 'asc'));
     const unsubscribeProjects = onSnapshot(qProjects, (snapshot) => {
       setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, pathProjects);
     });
 
     return () => {

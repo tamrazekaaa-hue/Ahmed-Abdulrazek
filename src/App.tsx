@@ -39,10 +39,12 @@ import {
   Leaf,
   Pencil
 } from 'lucide-react';
+import { Calculator } from 'lucide-react';
 import Chatbot from './components/Chatbot';
 import AdminDashboard from './components/AdminDashboard';
+import MEPCalculators from './components/MEPCalculators';
 import { doc, getDoc, setDoc, updateDoc, increment, collection, addDoc, query, orderBy, onSnapshot, where, getDocs, deleteDoc } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
 
 type Theme = 'light' | 'dark';
 
@@ -145,6 +147,7 @@ export default function App() {
 }
 
 function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void }) {
+  const [isCalculatorsOpen, setIsCalculatorsOpen] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
@@ -172,21 +175,29 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
 
   useEffect(() => {
     // Fetch CV Download Count
+    const path = 'stats/cv_downloads';
     const unsubscribeStats = onSnapshot(doc(db, 'stats', 'cv_downloads'), (docSnap) => {
       if (docSnap.exists()) {
         setCvDownloadCount(docSnap.data().count);
       } else {
         setCvDownloadCount(0);
       }
+    }, (error) => {
+      console.warn("Retrying CV count connection...", error);
+      // Don't crash the whole app, just log it properly
+      handleFirestoreError(error, OperationType.GET, path);
     });
     return () => unsubscribeStats();
   }, []);
 
   useEffect(() => {
     // Fetch News Feed
+    const path = 'news_feed';
     const qNews = query(collection(db, 'news_feed'), orderBy('createdAt', 'desc'));
     const unsubscribeNews = onSnapshot(qNews, (snapshot) => {
       setNewsItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
     });
     return () => unsubscribeNews();
   }, []);
@@ -337,12 +348,15 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       } else {
         setProjects(currentProjects);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
     });
     return () => unsubscribeProjects();
   }, [isAdmin]);
 
   useEffect(() => {
     const trackVisitor = async () => {
+      const path = 'analytics/visitors';
       try {
         const visitorRef = doc(db, 'analytics', 'visitors');
         const docSnap = await getDoc(visitorRef);
@@ -361,7 +375,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
           }
         }
       } catch (error) {
-        console.error("Error tracking visitor:", error);
+        handleFirestoreError(error, OperationType.WRITE, path);
       }
     };
 
@@ -524,11 +538,19 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       {/* Navigation */}
       <nav className={`fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300 ${theme === 'dark' ? 'border-slate-800 bg-slate-950/80' : 'border-slate-200 bg-white/80'} backdrop-blur-md shadow-sm`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <a href="#" className="flex items-center gap-3">
+          <a 
+            href="#" 
+            className="flex items-center gap-3"
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              window.location.hash = '#admin';
+            }}
+            title="Double click for admin access"
+          >
             <img 
               src="/Logo.jpg" 
               alt="Ahmed Abdulrazek Logo" 
-              className="h-12 md:h-16 w-auto object-contain"
+              className="h-12 md:h-16 w-auto object-contain cursor-pointer"
             />
           </a>
           <div className={`hidden md:flex items-center gap-8 text-sm font-medium transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -538,6 +560,13 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
             <a href="#insights" className="hover:text-blue-600 transition-colors">Insights</a>
             <a href="#gallery" className="hover:text-blue-600 transition-colors">Gallery</a>
             <a href="#credentials" className="hover:text-blue-600 transition-colors">Credentials</a>
+            <button 
+              onClick={() => setIsCalculatorsOpen(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              MEP Tools
+            </button>
           </div>
           <div className="flex items-center gap-4">
             <button 
@@ -1091,6 +1120,13 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       </footer>
 
       <Chatbot theme={theme} />
+
+      {/* MEP Calculators Modal */}
+      <MEPCalculators 
+        isOpen={isCalculatorsOpen} 
+        onClose={() => setIsCalculatorsOpen(false)} 
+        theme={theme} 
+      />
 
       {/* PDF Viewer Modal */}
       {selectedPdf && (
