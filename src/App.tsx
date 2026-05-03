@@ -538,22 +538,15 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       {/* Navigation */}
       <nav className={`fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300 ${theme === 'dark' ? 'border-slate-800 bg-slate-950/80' : 'border-slate-200 bg-white/80'} backdrop-blur-md shadow-sm`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <a 
-            href="#" 
-            className="flex items-center gap-3"
-            onDoubleClick={(e) => {
-              e.preventDefault();
-              window.location.hash = '#admin';
-            }}
-            title="Double click for admin access"
-          >
+          <div className="flex items-center gap-3">
             <img 
               src="/Logo.jpg" 
               alt="Ahmed Abdulrazek Logo" 
-              className="h-12 md:h-16 w-auto object-contain cursor-pointer"
+              className="h-12 md:h-16 w-auto object-contain"
             />
-          </a>
+          </div>
           <div className={`hidden md:flex items-center gap-8 text-sm font-medium transition-colors ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+            <a href="#" className="hover:text-blue-600 transition-colors">Home</a>
             <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
             <a href="#projects" className="hover:text-blue-600 transition-colors">Projects</a>
             <a href="#news" className="hover:text-blue-600 transition-colors">News</a>

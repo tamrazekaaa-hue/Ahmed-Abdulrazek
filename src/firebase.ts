@@ -54,15 +54,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // Test connection to Firestore
 async function testConnection() {
-  const testPath = 'test/connection';
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
     console.log("[Firestore] Connection successful");
   } catch (error: any) {
     if (error?.code === 'unavailable') {
-      console.error("[Firestore] CRITICAL: Could not reach Firestore backend. Please check if the database ID is correct and if Firestore is enabled in your project.");
+      console.error("[Firestore] CRITICAL: Could not reach Firestore backend. This typically indicates a network issue or incorrect configuration.");
+    } else if (error?.code === 'permission-denied') {
+      console.error("[Firestore] Permission denied on test path. Please ensure your firestore.rules allow reading 'test/connection'.");
+    } else {
+      console.error("[Firestore] Connection check failed:", error.message || error);
     }
-    handleFirestoreError(error, OperationType.GET, testPath);
   }
 }
 testConnection();
