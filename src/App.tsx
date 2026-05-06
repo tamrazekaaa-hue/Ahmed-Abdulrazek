@@ -508,7 +508,8 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     }
   ];
 
-  const handleDownloadCV = async () => {
+  const handleDownloadCV = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
     try {
       const statRef = doc(db, 'stats', 'cv_downloads');
       const statDoc = await getDoc(statRef);
@@ -519,6 +520,24 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
       }
     } catch (error) {
       console.error("Error updating CV download count:", error);
+    }
+    
+    try {
+      // Force programmatic download to bypass iframe/browser viewer issues
+      const response = await fetch('/Ahmed_Abdulrazek_CV-1.pdf');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Ahmed_Abdulrazek_CV-1.pdf');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading the CV:", error);
+      // Fallback
+      window.open('/Ahmed_Abdulrazek_CV-1.pdf', '_blank');
     }
   };
 
