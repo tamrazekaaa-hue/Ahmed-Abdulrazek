@@ -417,7 +417,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
     {
       icon: <ShieldCheck className="w-6 h-6 text-blue-400" />,
       title: "Quality & Compliance",
-      description: "ARAMCO standards, HSE, life safety, and regulatory compliance."
+      description: "International Codes and standards in addition to Saudi building code, HSE, life safety, and regulatory compliance."
     },
     {
       icon: <Users className="w-6 h-6 text-amber-400" />,
