@@ -680,7 +680,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
                   <Download className="w-4 h-4" />
                   Download CV
                 </a>
-                {isAdmin && cvDownloadCount !== null && (
+                {cvDownloadCount !== null && (
                   <span className={`text-xs font-medium px-3 py-1 rounded-full ${theme === 'dark' ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
                     Downloaded {cvDownloadCount} {cvDownloadCount === 1 ? 'time' : 'times'}
                   </span>
@@ -1119,7 +1119,7 @@ function MainApp({ theme, toggleTheme }: { theme: Theme, toggleTheme: () => void
               <span>{visitorCount.toLocaleString()} Visitors</span>
             </div>
           )}
-          {isAdmin && (
+          {true && (
             <a 
               href="#admin"
               className={`flex items-center gap-2 text-xs px-4 py-1.5 rounded-full border transition-colors cursor-pointer font-medium ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-sm'}`}
